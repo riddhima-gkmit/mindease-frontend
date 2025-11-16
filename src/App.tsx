@@ -9,10 +9,6 @@ import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
 import TopNav from './components/shared/TopNav';
 import BottomNav from './components/shared/BottomNav';
 import UserDashboard from './components/user/UserDashboard';
-import UserProfile from './components/user/UserProfile';
-import MoodTracker from './components/user/MoodTracker';
-import Recommendations from './components/user/Recommendations';
-import TherapistDirectory from './components/user/TherapistDirectory';
 import { Button } from './components/ui/button';
 import { LogOut } from 'lucide-react';
 
@@ -199,10 +195,6 @@ function AppContent() {
         <TopNav onNavigate={navigate} />
         <main className="pb-20">
           {displayView === 'user-dashboard' && <UserDashboard onNavigate={navigate} />}
-          {displayView === 'user-profile' && <UserProfile onNavigate={navigate} />}
-          {displayView === 'mood-tracker' && <MoodTracker onNavigate={navigate} />}
-          {displayView === 'therapist-directory' && <TherapistDirectory onNavigate={navigate} />}
-          {displayView === 'recommendations' && <Recommendations onNavigate={navigate} />}
         </main>
         <BottomNav 
           currentView={displayView} 
@@ -239,7 +231,6 @@ function AppContent() {
               return <Comp />;
             })()
           )}
-          {currentView === 'user-profile' && <UserProfile onNavigate={navigate} />}
         </main>
         <BottomNav currentView={currentView} onNavigate={navigate} role="therapist" />
       </div>
