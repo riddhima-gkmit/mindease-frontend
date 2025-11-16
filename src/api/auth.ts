@@ -86,6 +86,7 @@ export interface User {
   email_verified: boolean;
   first_name?: string;
   last_name?: string;
+  date_joined?: Date;
 }
 
 export const authAPI = {

@@ -6,6 +6,13 @@ import EmailVerification from './components/auth/EmailVerification';
 import EmailVerificationLink from './components/auth/EmailVerificationLink';
 import PasswordReset from './components/auth/PasswordReset';
 import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
+import TopNav from './components/shared/TopNav';
+import BottomNav from './components/shared/BottomNav';
+import UserDashboard from './components/user/UserDashboard';
+import UserProfile from './components/user/UserProfile';
+import MoodTracker from './components/user/MoodTracker';
+import Recommendations from './components/user/Recommendations';
+import TherapistDirectory from './components/user/TherapistDirectory';
 import { Button } from './components/ui/button';
 import { LogOut } from 'lucide-react';
 
@@ -14,7 +21,16 @@ type View =
   | 'register' 
   | 'email-verification' 
   | 'password-reset'
-  | 'password-reset-confirm';
+  | 'password-reset-confirm'
+  | 'user-dashboard'
+  | 'mood-tracker'
+  | 'therapist-directory'
+  | 'recommendations'
+  | 'user-profile'
+  | 'therapist-dashboard'
+  | 'therapist-appointments'
+  | 'therapist-availability'
+  | 'admin-dashboard';
 
 function AppContent() {
   const { user, isAuthenticated, loading, logout, verifyEmail } = useAuth();
@@ -69,6 +85,10 @@ function AppContent() {
     }
   };
 
+  // Determine user role for navigation (backend uses 'patient', frontend uses 'user')
+  const userRole = user?.role === 'therapist' ? 'therapist' : 'user';
+  const isPatient = user?.role === 'patient' || user?.role === 'user' || (!user?.role || (user?.role !== 'therapist' && user?.role !== 'admin'));
+
   // Check URL on mount for email verification or password reset
   useEffect(() => {
     const path = window.location.pathname;
@@ -99,8 +119,23 @@ function AppContent() {
 
   // Set default view when authenticated
   useEffect(() => {
-    // No dashboard redirects while committing auth screens
-  }, [isAuthenticated, user, currentView]);
+    if (isAuthenticated && user) {
+      // List of auth views that should redirect to dashboard
+      const authViews = ['login', 'register', 'email-verification', 'password-reset', 'password-reset-confirm'];
+      
+      // If we're on an auth view or not on a dashboard view, redirect to appropriate dashboard
+      if (authViews.includes(currentView) || 
+          (!['user-dashboard', 'mood-tracker', 'therapist-directory', 'recommendations', 'user-profile', 'therapist-dashboard', 'admin-dashboard'].includes(currentView))) {
+        if (userRole === 'user') {
+          setCurrentView('user-dashboard');
+        } else if (userRole === 'therapist') {
+          setCurrentView('therapist-dashboard');
+        } else if (user?.role === 'admin') {
+          setCurrentView('admin-dashboard');
+        }
+      }
+    }
+  }, [isAuthenticated, user, userRole, currentView]);
 
   // Show loading state while checking authentication
   if (loading) {
@@ -150,26 +185,81 @@ function AppContent() {
     );
   }
 
-  // Authenticated - simple placeholder (dashboard disabled)
-  if (isAuthenticated) {
+  // Authenticated - show dashboard
+  
+  if (isAuthenticated && isPatient) {
+    // Ensure we have a valid view
+    const displayView = currentView === 'user-dashboard' || 
+                       ['mood-tracker', 'therapist-directory', 'recommendations', 'user-profile'].includes(currentView) 
+                       ? currentView 
+                       : 'user-dashboard';
+    
     return (
-      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-purple-50 to-white flex items-center justify-center p-4">
-        <div className="text-center bg-white rounded-3xl shadow-lg p-8 max-w-md w-full">
-          <h1 className="text-3xl font-bold text-teal-600 mb-4">Welcome, {user?.first_name} {user?.last_name}! <br /> <span className="text-gray-500 text-sm">({user?.email})</span></h1>
-          <p className="text-gray-500 mb-6">Role: {user?.role}</p>
-          <p className="text-gray-500 mb-6">Dashboard screens are disabled for this commit.</p>
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            className="w-full rounded-2xl h-12 flex items-center justify-center gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-purple-50 to-white">
+        <TopNav onNavigate={navigate} />
+        <main className="pb-20">
+          {displayView === 'user-dashboard' && <UserDashboard onNavigate={navigate} />}
+          {displayView === 'user-profile' && <UserProfile onNavigate={navigate} />}
+          {displayView === 'mood-tracker' && <MoodTracker onNavigate={navigate} />}
+          {displayView === 'therapist-directory' && <TherapistDirectory onNavigate={navigate} />}
+          {displayView === 'recommendations' && <Recommendations onNavigate={navigate} />}
+        </main>
+        <BottomNav 
+          currentView={displayView} 
+          onNavigate={navigate}
+          role="user"
+        />
       </div>
     );
   }
+
+  // Therapist dashboard screens
+  if (isAuthenticated && userRole === 'therapist') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-purple-50 to-white">
+        <TopNav onNavigate={navigate} />
+        <main className="pb-20">
+          {currentView === 'therapist-dashboard' && (
+            // Lazy import removed for simplicity
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            (() => {
+              const Comp = require('./components/therapist/TherapistDashboard').default;
+              return <Comp onNavigate={navigate} />;
+            })()
+          )}
+          {currentView === 'therapist-appointments' && (
+            (() => {
+              const Comp = require('./components/therapist/TherapistAppointments').default;
+              return <Comp />;
+            })()
+          )}
+          {currentView === 'therapist-availability' && (
+            (() => {
+              const Comp = require('./components/therapist/TherapistAvailability').default;
+              return <Comp />;
+            })()
+          )}
+          {currentView === 'user-profile' && <UserProfile onNavigate={navigate} />}
+        </main>
+        <BottomNav currentView={currentView} onNavigate={navigate} role="therapist" />
+      </div>
+    );
+  }
+
+  // Fallback (admin or unknown role)
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-purple-50 to-white flex items-center justify-center p-4">
+      <div className="text-center bg-white rounded-3xl shadow-lg p-8 max-w-md w-full">
+        <h1 className="text-3xl font-bold text-teal-600 mb-4">Welcome, {user?.first_name} {user?.last_name}! <br /> <span className="text-gray-500 text-sm">({user?.email})</span></h1>
+        <p className="text-gray-600 mb-4">Role: {user?.role}</p>
+        <p className="text-gray-500 mb-6">Admin screens will be implemented next.</p>
+        <Button onClick={handleLogout} variant="outline" className="w-full rounded-2xl h-12 flex items-center justify-center gap-2">
+          <LogOut className="w-4 h-4" />
+          Logout
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
