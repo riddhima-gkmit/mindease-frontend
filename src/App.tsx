@@ -7,6 +7,7 @@ import EmailVerificationLink from './components/auth/EmailVerificationLink';
 import PasswordReset from './components/auth/PasswordReset';
 import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
 import TopNav from './components/shared/TopNav';
+import MoodTracker from './components/user/MoodTracker';
 import BottomNav from './components/shared/BottomNav';
 import UserDashboard from './components/user/UserDashboard';
 import { Button } from './components/ui/button';
@@ -195,6 +196,7 @@ function AppContent() {
         <TopNav onNavigate={navigate} />
         <main className="pb-20">
           {displayView === 'user-dashboard' && <UserDashboard onNavigate={navigate} />}
+          {displayView === 'mood-tracker' && <MoodTracker onNavigate={navigate} />}
         </main>
         <BottomNav 
           currentView={displayView} 
