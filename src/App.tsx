@@ -9,7 +9,7 @@ import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
 import { Button } from './components/ui/button';
 import { LogOut } from 'lucide-react';
 
-type View = 
+export type View = 
   | 'login' 
   | 'register' 
   | 'email-verification' 

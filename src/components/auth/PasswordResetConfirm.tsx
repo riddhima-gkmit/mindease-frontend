@@ -5,11 +5,12 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Alert, AlertDescription } from '../ui/alert';
+import type { View } from '../../App';
 
 interface PasswordResetConfirmProps {
   uidb64: string;
   token: string;
-  onNavigate: (view: any) => void;
+  onNavigate: (view: View) => void;
 }
 
 export default function PasswordResetConfirm({ uidb64, token, onNavigate }: PasswordResetConfirmProps) {

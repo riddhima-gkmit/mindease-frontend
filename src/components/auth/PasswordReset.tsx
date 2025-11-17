@@ -6,9 +6,10 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Alert, AlertDescription } from '../ui/alert';
 import { AlertCircle } from 'lucide-react';
+import type { View } from '../../App';
 
 interface PasswordResetProps {
-  onNavigate: (view: any) => void;
+  onNavigate: (view: View) => void;
 }
 
 export default function PasswordReset({ onNavigate }: PasswordResetProps) {
