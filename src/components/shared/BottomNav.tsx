@@ -12,7 +12,7 @@ export default function BottomNav({ currentView, onNavigate, role }: BottomNavPr
       { id: 'therapist-dashboard', label: 'Home', icon: Home },
       { id: 'therapist-appointments', label: 'Appointments', icon: Calendar },
       { id: 'therapist-availability', label: 'Schedule', icon: Clock },
-      { id: 'user-profile', label: 'Profile', icon: User },
+      { id: 'therapist-profile', label: 'Profile', icon: User },
     ];
 
     return (

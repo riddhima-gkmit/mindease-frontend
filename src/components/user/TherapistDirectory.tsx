@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, MapPin, Calendar as CalIcon, Video } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { listTherapists, getTherapistAvailability, type TherapistProfile, type TherapistAvailability } from '../../api/therapists';
+import { listTherapists, getTherapistAvailability, type TherapistProfile, type TherapistAvailability, type PaginatedResponse } from '../../api/therapists';
 import { createAppointment } from '../../api/appointments';
 import AppointmentBooking from './AppointmentBooking';
+import Pagination from '../ui/pagination';
 
 interface TherapistDirectoryProps {
   onNavigate: (view: any) => void;
@@ -20,10 +21,10 @@ const SPECIALIZATION_FILTERS = [
   'Family Therapy',
 ];
 
-export default function TherapistDirectory({ onNavigate }: TherapistDirectoryProps) {
+export default function TherapistDirectory({ onNavigate: _onNavigate }: TherapistDirectoryProps) {
   const [therapists, setTherapists] = useState<TherapistProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [_error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [selected, setSelected] = useState<TherapistProfile | null>(null);
@@ -32,20 +33,46 @@ export default function TherapistDirectory({ onNavigate }: TherapistDirectoryPro
   const [booking, setBooking] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 12;
+
+  const loadTherapists = async (page: number = 1, specialization?: string) => {
+    try {
+      setLoading(true);
+      const data = await listTherapists(specialization, page, pageSize);
+      
+      // Check if response is paginated
+      if (data && typeof data === 'object' && 'results' in data) {
+        const paginatedData = data as PaginatedResponse<TherapistProfile>;
+        setTherapists(paginatedData.results);
+        setTotalPages(Math.ceil(paginatedData.count / pageSize));
+        setTotalItems(paginatedData.count);
+      } else {
+        // Fallback for non-paginated response (backward compatibility)
+        const therapistsArray = data as TherapistProfile[];
+        setTherapists(therapistsArray);
+        setTotalPages(1);
+        setTotalItems(therapistsArray.length);
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load therapists');
+      setTherapists([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await listTherapists();
-        setTherapists(data);
-      } catch (e: any) {
-        setError(e?.message || 'Failed to load therapists');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    loadTherapists(currentPage);
+  }, [currentPage]);
+
+  useEffect(() => {
+    // Reset to page 1 when filter changes
+    setCurrentPage(1);
+    loadTherapists(1, activeFilter === 'All' ? undefined : activeFilter);
+  }, [activeFilter]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -60,16 +87,7 @@ export default function TherapistDirectory({ onNavigate }: TherapistDirectoryPro
 
   const applyFilter = async (label: string) => {
     setActiveFilter(label);
-    try {
-      setLoading(true);
-      const isAll = label === 'All';
-      const data = await listTherapists(isAll ? undefined : label);
-      setTherapists(data);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load therapists');
-    } finally {
-      setLoading(false);
-    }
+    setCurrentPage(1);
   };
 
   const openAvailability = async (t: TherapistProfile) => {
@@ -107,7 +125,39 @@ export default function TherapistDirectory({ onNavigate }: TherapistDirectoryPro
         setSelected(null);
       }, 800);
     } catch (e: any) {
-      const msg = e?.response?.data?.error || e?.message || 'Failed to book appointment';
+      // Handle different error response formats from DRF
+      let msg = 'Failed to book appointment';
+      if (e?.response?.status === 400) {
+        const errorData = e?.response?.data;
+        // Check for non_field_errors (DRF format for ValidationError from validate())
+        if (errorData?.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+          msg = errorData.non_field_errors[0];
+        }
+        // Check for direct error message
+        else if (errorData?.error) {
+          msg = errorData.error;
+        }
+        // Check if errorData is an array (another DRF format)
+        else if (Array.isArray(errorData) && errorData.length > 0) {
+          msg = errorData[0];
+        }
+        // Check if errorData is a string
+        else if (typeof errorData === 'string') {
+          msg = errorData;
+        }
+        // Default message for 400 errors
+        else {
+          msg = 'This slot is already booked.';
+        }
+      } else {
+        msg = e?.response?.data?.error || e?.message || 'Failed to book appointment';
+      }
+      
+      // Replace technical error messages with user-friendly ones
+      if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('therapist, date, time_slot')) {
+        msg = 'This slot is already booked. Please select another time.';
+      }
+      
       setBookingError(msg);
     } finally {
       setBooking(false);
@@ -240,7 +290,7 @@ export default function TherapistDirectory({ onNavigate }: TherapistDirectoryPro
                 Next available: —
               </div> */}
 
-              <div className="flex items-center gap-3 pt-1">
+              <div className="flex items-center gap-3 pt-1 mt-auto">
                 <Button
                   className="rounded-2xl w-full bg-gradient-to-r from-teal-400 to-purple-400 hover:from-teal-500 hover:to-purple-500 text-white"
                   onClick={() => openAvailability(t)}
@@ -253,6 +303,17 @@ export default function TherapistDirectory({ onNavigate }: TherapistDirectoryPro
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {!query && filtered.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={totalItems}
+          itemsPerPage={pageSize}
+        />
+      )}
 
       {/* Availability / Booking Dialog */}
       {selected && (

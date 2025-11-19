@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, Video, MapPin, CheckCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '../ui/button';
 
@@ -127,11 +127,21 @@ export default function AppointmentBooking({
     return times.map((t) => ({ raw: t, label: toAmPm(t) }));
   }, [selectedDate, derived]);
 
+  // Sync step with success/error props from parent
+  useEffect(() => {
+    if (success && step === 'confirm') {
+      setStep('success');
+    }
+    // If there's an error, stay on confirm step to show the error
+    if (error && step === 'success') {
+      setStep('confirm');
+    }
+  }, [success, error, step]);
+
   const handleConfirm = async () => {
     if (!selectedDate || !selectedTimeRaw) return;
     await onConfirm({ date: selectedDate, time: `${selectedTimeRaw}:00` });
-    // Success handling is managed by parent; locally reflect success state for UX parity
-    if (!error) setStep('success');
+    // Don't set success here - let useEffect handle it based on props
   };
 
   if (!open) return null;

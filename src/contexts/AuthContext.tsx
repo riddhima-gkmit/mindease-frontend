@@ -49,21 +49,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('access_token', response.access);
     localStorage.setItem('refresh_token', response.refresh);
     
-    // Set user data
+    // Set user data from login response (includes role)
     setUser({
       id: response.user.id,
       username: response.user.username || email.split('@')[0],
       email: response.user.email,
-      role: response.user.role,
+      role: response.user.role, // Use role from login response
       email_verified: false, // Will be updated when profile is fetched
     });
 
-    // Fetch full profile to get email_verified status
+    // Fetch full profile to get email_verified status and other details
     try {
       const profile = await authAPI.getProfile();
       setUser(profile);
     } catch (error) {
       console.error('Failed to fetch profile:', error);
+      // Keep the user data from login response even if profile fetch fails
     }
   };
 

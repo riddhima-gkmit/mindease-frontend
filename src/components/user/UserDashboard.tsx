@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Smile, Calendar, Lightbulb, TrendingUp, Plus } from 'lucide-react';
+import { Smile, Calendar, Lightbulb, TrendingUp, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
-import { getAppointments } from '../../api/appointments';
-import { getMoodEntries, getMoodAnalytics } from '../../api/mood';
+import { getAppointments, cancelAppointment, type PaginatedResponse } from '../../api/appointments';
+import { getMoodEntries, getMoodAnalytics, type PaginatedResponse as MoodPaginatedResponse } from '../../api/mood';
 import type { Appointment } from '../../api/appointments';
 import type { MoodEntry } from '../../api/mood';
 
@@ -19,6 +19,11 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
   const [moodAnalytics, setMoodAnalytics] = useState<{ average_mood: number; trend: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSuccess, setCancelSuccess] = useState('');
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -45,11 +50,21 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
       ]);
 
       // Process appointments
-      const appointments = appointmentsData.status === 'fulfilled' ? appointmentsData.value : [];
+      let appointments: Appointment[] = [];
+      if (appointmentsData.status === 'fulfilled') {
+        const data = appointmentsData.value;
+        // Check if response is paginated
+        if (data && typeof data === 'object' && 'results' in data) {
+          appointments = (data as PaginatedResponse<Appointment>).results;
+        } else {
+          appointments = Array.isArray(data) ? data : [];
+        }
+      }
+      
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const upcoming = Array.isArray(appointments) ? appointments
+      const upcoming = appointments
         .filter(apt => {
           try {
             if (!apt || !apt.date) return false;
@@ -69,13 +84,23 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
             return 0;
           }
         })
-        .slice(0, 2) : [];
+        // .slice(0, 2)
+        ;
 
       setAppointments(upcoming);
 
       // Process mood entries
-      const moods = moodData.status === 'fulfilled' ? moodData.value : [];
-      setMoodEntries(Array.isArray(moods) ? moods : []);
+      let moods: MoodEntry[] = [];
+      if (moodData.status === 'fulfilled') {
+        const data = moodData.value;
+        // Check if response is paginated
+        if (data && typeof data === 'object' && 'results' in data) {
+          moods = (data as MoodPaginatedResponse<MoodEntry>).results;
+        } else {
+          moods = Array.isArray(data) ? data : [];
+        }
+      }
+      setMoodEntries(moods);
 
       // Process analytics
       if (analyticsData.status === 'fulfilled' && analyticsData.value) {
@@ -123,6 +148,61 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
     return moodEmojis[index] || moodEmojis[2]; // Default to middle emoji
   };
 
+  // Open cancel confirmation modal
+  const openCancelModal = (appointment: Appointment) => {
+    setAppointmentToCancel(appointment);
+    setShowCancelModal(true);
+    setCancelError('');
+    setCancelSuccess('');
+  };
+
+  // Close cancel modal
+  const closeCancelModal = () => {
+    setShowCancelModal(false);
+    setAppointmentToCancel(null);
+    setCancelError('');
+  };
+
+  // Handle appointment cancellation
+  const handleCancelAppointment = async () => {
+    if (!appointmentToCancel) return;
+
+    try {
+      setCancellingId(appointmentToCancel.id);
+      setCancelError('');
+      setCancelSuccess('');
+      
+      await cancelAppointment(appointmentToCancel.id);
+      setCancelSuccess('Appointment cancelled successfully.');
+      
+      // Close modal
+      closeCancelModal();
+      
+      // Refresh appointments list
+      await loadDashboardData();
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setCancelSuccess('');
+      }, 3000);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to cancel appointment. Please try again.';
+      setCancelError(errorMessage);
+      
+      // Clear error message after 5 seconds
+      setTimeout(() => {
+        setCancelError('');
+      }, 5000);
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  // Check if appointment can be cancelled
+  const canCancelAppointment = (appointment: Appointment) => {
+    return appointment.status === 'pending' || appointment.status === 'confirmed';
+  };
+
   if (loading) {
     return (
       <div className="max-w-screen-xl mx-auto px-4 py-6 flex items-center justify-center min-h-[60vh]">
@@ -156,14 +236,12 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
             <Smile className="w-5 h-5 text-teal-600" />
             <h3 className="font-semibold">Today's Mood</h3>
           </div>
-          <Button
+          <button
             onClick={() => onNavigate('mood-tracker')}
-            size="sm"
-            className="bg-teal-500 hover:bg-teal-600 text-white rounded-2xl"
+            className="text-teal-600 hover:text-teal-700 transition-colors text-sm font-medium"
           >
-            <Plus className="w-4 h-4 mr-1" />
             Log Mood
-          </Button>
+          </button>
         </div>
 
         {todaysMood && todaysMood.mood_score ? (
@@ -185,8 +263,7 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
             <p className="text-gray-500 mb-4">You haven't logged your mood today</p>
             <Button
               onClick={() => onNavigate('mood-tracker')}
-              variant="outline"
-              className="rounded-2xl"
+              className="bg-gradient-to-r from-teal-400 to-purple-400 hover:from-teal-500 hover:to-purple-500 text-white rounded-2xl"
             >
               Log Your Mood
             </Button>
@@ -209,15 +286,27 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
           </button>
         </div>
 
+        {/* Error/Success Messages */}
+        {cancelError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+            {cancelError}
+          </div>
+        )}
+        {cancelSuccess && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
+            {cancelSuccess}
+          </div>
+        )}
+
         {appointments.length > 0 ? (
           <div className="space-y-3">
             {appointments.map((appointment) => (
               <div
                 key={appointment.id}
-                className="p-4 bg-gradient-to-r from-teal-50 to-purple-50 rounded-2xl border border-gray-100 hover:border-teal-200 transition-colors cursor-pointer"
+                className="p-4 bg-gradient-to-r from-teal-50 to-purple-50 rounded-2xl border border-gray-100 hover:border-teal-200 transition-colors"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <div>
+                  <div className="flex-1">
                     <p className="text-gray-800 font-medium">
                       {appointment.therapist_name || 'Therapist'}
                     </p>
@@ -226,28 +315,45 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
                     )}
                   </div>
                   {appointment.status && (
-                    <span className="px-3 py-1 bg-white rounded-full text-purple-600 text-xs font-medium capitalize">
+                    <span className="px-3 py-1 bg-white rounded-full text-purple-600 text-xs font-medium capitalize ml-2">
                       {appointment.status}
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-4 text-gray-600 text-sm">
-                  {appointment.date && (
-                    <>
-                      <span>
-                        {new Date(appointment.date).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric', 
-                          year: 'numeric' 
-                        })}
-                      </span>
-                      {appointment.time_slot && (
-                        <>
-                          <span>•</span>
-                          <span>{formatTime(appointment.time_slot)}</span>
-                        </>
-                      )}
-                    </>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-gray-600 text-sm">
+                    {appointment.date && (
+                      <>
+                        <span>
+                          {new Date(appointment.date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </span>
+                        {appointment.time_slot && (
+                          <>
+                            <span>•</span>
+                            <span>{formatTime(appointment.time_slot)}</span>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {canCancelAppointment(appointment) && (
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCancelModal(appointment);
+                      }}
+                      disabled={cancellingId === appointment.id}
+                      variant="outline"
+                      size="sm"
+                      className="ml-4 text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-gray-200 rounded-xl"
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      Cancel
+                    </Button>
                   )}
                 </div>
               </div>
@@ -287,7 +393,7 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
               </div>
             </div>
             <Button
-              onClick={() => onNavigate('mood-tracker')}
+              onClick={() => onNavigate({ view: 'mood-tracker', tab: 'history' })}
               variant="outline"
               className="rounded-2xl"
             >
@@ -325,6 +431,90 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
           </div>
         </div>
       </div>
+
+      {/* Cancel Appointment Confirmation Modal */}
+      {showCancelModal && appointmentToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={closeCancelModal} />
+          <div className="relative w-full max-w-md mx-4 bg-white rounded-3xl shadow-lg p-6">
+            {/* Icon and Title */}
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-teal-100 to-purple-100 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="w-8 h-8 text-teal-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">Cancel Appointment?</h3>
+              <p className="text-gray-600 text-sm">
+                Are you sure you want to cancel this appointment? This action cannot be undone.
+              </p>
+            </div>
+
+            {/* Appointment Details */}
+            <div className="bg-gradient-to-r from-teal-50 to-purple-50 rounded-2xl p-4 mb-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 text-sm">Therapist:</span>
+                  <span className="text-gray-800 font-medium text-sm">
+                    {appointmentToCancel.therapist_name || 'Therapist'}
+                  </span>
+                </div>
+                {appointmentToCancel.date && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 text-sm">Date:</span>
+                    <span className="text-gray-800 font-medium text-sm">
+                      {new Date(appointmentToCancel.date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                )}
+                {appointmentToCancel.time_slot && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 text-sm">Time:</span>
+                    <span className="text-gray-800 font-medium text-sm">
+                      {formatTime(appointmentToCancel.time_slot)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {cancelError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                {cancelError}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <Button
+                onClick={closeCancelModal}
+                variant="outline"
+                className="flex-1 rounded-2xl"
+                disabled={cancellingId === appointmentToCancel.id}
+              >
+                Keep Appointment
+              </Button>
+              <Button
+                onClick={handleCancelAppointment}
+                disabled={cancellingId === appointmentToCancel.id}
+                className="flex-1 bg-gradient-to-r from-teal-400 to-purple-400 hover:from-teal-500 hover:to-purple-500 text-white rounded-2xl"
+              >
+                {cancellingId === appointmentToCancel.id ? (
+                  <>
+                    <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent mr-2"></div>
+                    Cancelling...
+                  </>
+                ) : (
+                  'Yes, Cancel'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,10 +1,12 @@
 /// <reference path="../../types/recharts.d.ts" />
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Heart, Calendar, TrendingUp, Edit2 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { getMoodEntries, createMoodEntry, updateMoodEntry, type MoodEntry } from '../../api/mood';
+import { getMoodEntries, createMoodEntry, updateMoodEntry, getMoodChartData, type MoodEntry, type PaginatedResponse } from '../../api/mood';
+import Pagination from '../ui/pagination';
 
 interface MoodTrackerProps {
   onNavigate: (view: any) => void;
@@ -13,19 +15,28 @@ interface MoodTrackerProps {
 const moodEmojis = ['😔', '😕', '😐', '🙂', '😄'];
 const moodLabels = ['Very Low', 'Low', 'Neutral', 'Good', 'Great'];
 
-export default function MoodTracker({ onNavigate }: MoodTrackerProps) {
+export default function MoodTracker({ onNavigate: _onNavigate }: MoodTrackerProps) {
+  const location = useLocation();
   const [entries, setEntries] = useState<MoodEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showHistory, setShowHistory] = useState(false);
+  // Check URL parameter to determine initial tab
+  const searchParams = new URLSearchParams(location.search);
+  const initialTab = searchParams.get('tab');
+  const [showHistory, setShowHistory] = useState(initialTab === 'history');
   const [editingEntry, setEditingEntry] = useState<MoodEntry | null>(null);
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [averageMood, setAverageMood] = useState<number | null>(null);
   const [chartData, setChartData] = useState<Array<{ date: string; mood_score: number }>>([]);
   const [period, setPeriod] = useState<'7' | '30'>('7');
+  const [chartLoading, setChartLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 10;
 
   const clearMessages = () => {
     if (error) setError('');
@@ -50,93 +61,84 @@ export default function MoodTracker({ onNavigate }: MoodTrackerProps) {
   };
 
   useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const entriesData = await getMoodEntries();
-        setEntries(entriesData);
-        computeDerived(entriesData, period);
-      } catch (e: any) {
-        setError(e?.message || 'Failed to load mood entries');
-      } finally {
-        setLoading(false);
+    loadMoodEntries(currentPage);
+  }, [currentPage]);
+
+  // Load chart data on component mount and when period changes
+  useEffect(() => {
+    loadChartData();
+  }, [period]);
+
+  // Update tab when URL parameter changes (but don't reload chart)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tab = searchParams.get('tab');
+    setShowHistory(tab === 'history');
+  }, [location.search]);
+
+  const loadMoodEntries = async (page: number = 1) => {
+    try {
+      setLoading(true);
+      const entriesData = await getMoodEntries(page, pageSize);
+      
+      // Check if response is paginated
+      let entriesArray: MoodEntry[] = [];
+      if (entriesData && typeof entriesData === 'object' && 'results' in entriesData) {
+        const paginatedData = entriesData as PaginatedResponse<MoodEntry>;
+        entriesArray = paginatedData.results;
+        setTotalPages(Math.ceil(paginatedData.count / pageSize));
+        setTotalItems(paginatedData.count);
+      } else {
+        // Fallback for non-paginated response (backward compatibility)
+        entriesArray = entriesData as MoodEntry[];
+        setTotalPages(1);
+        setTotalItems(entriesArray.length);
       }
-    })();
-  }, []);
+      
+      setEntries(entriesArray);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load mood entries');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadChartData = async () => {
+    try {
+      setChartLoading(true);
+      const days = period === '7' ? 7 : 30;
+      const data = await getMoodChartData(days);
+      
+      // Format chart data for display
+      const formattedChartData = data.chart_data.map(point => {
+        // Parse date string (YYYY-MM-DD) as UTC
+        const [year, month, day] = point.date.split('-').map(Number);
+        const dateObj = new Date(Date.UTC(year, month - 1, day));
+        const label = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+        
+        return {
+          date: label,
+          mood_score: point.mood_score
+        };
+      });
+      
+      setChartData(formattedChartData);
+      setAverageMood(data.average_mood);
+    } catch (e: any) {
+      console.error('Failed to load chart data:', e);
+      // Don't show error to user, just set empty data
+      setChartData([]);
+      setAverageMood(null);
+    } finally {
+      setChartLoading(false);
+    }
+  };
 
   const refresh = async () => {
-    const entriesData = await getMoodEntries();
-    setEntries(entriesData);
-    computeDerived(entriesData, period);
+    await loadMoodEntries(currentPage);
+    await loadChartData(); // Also refresh chart data
   };
 
-  const computeDerived = (allEntries: MoodEntry[], currentPeriod: '7' | '30') => {
-    if (!Array.isArray(allEntries)) {
-      setAverageMood(null);
-      setChartData([]);
-      return;
-    }
-    const days = currentPeriod === '7' ? 7 : 30;
-    const today = new Date();
-    const startLocal = new Date(today);
-    startLocal.setHours(0, 0, 0, 0);
-    startLocal.setDate(today.getDate() - (days - 1));
-    // Index entries by raw date string (YYYY-MM-DD) to avoid timezone shifts
-    const byDate: Record<string, number> = {};
-    for (const e of allEntries) {
-      const key = String(e.created_at).slice(0, 10); // backend DateField -> 'YYYY-MM-DD'
-      byDate[key] = e.mood_score;
-    }
-    const labels: string[] = [];
-    const values: number[] = new Array(days).fill(NaN);
-    // Iterate using UTC days to generate ISO keys consistent with backend strings
-    const startUTC = Date.UTC(
-      startLocal.getFullYear(),
-      startLocal.getMonth(),
-      startLocal.getDate()
-    );
-    for (let i = 0; i < days; i++) {
-      const dayUTC = startUTC + i * 24 * 60 * 60 * 1000;
-      const d = new Date(dayUTC);
-      const iso = d.toISOString().slice(0, 10); // 'YYYY-MM-DD'
-      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      console.log(byDate);
-      console.log(iso, byDate[iso]);
-      labels.push(label);
-      if (byDate[iso] != null) {
-        values[i] = byDate[iso];
-      }
-    }
-    // Forward fill
-    for (let i = 1; i < days; i++) {
-      if (Number.isNaN(values[i]) && !Number.isNaN(values[i - 1])) {
-        values[i] = values[i - 1];
-      }
-    }
-    // Backward fill
-    for (let i = days - 2; i >= 0; i--) {
-      if (Number.isNaN(values[i]) && !Number.isNaN(values[i + 1])) {
-        values[i] = values[i + 1];
-      }
-    }
-    const points: Array<{ date: string; mood_score: number }> = labels.map((label, idx) => ({
-      date: label,
-      mood_score: values[idx],
-    }));
-    setChartData(points);
-    const known = values.filter((v) => !Number.isNaN(v));
-    if (known.length > 0) {
-      const avg = known.reduce((sum, v) => sum + v, 0) / known.length;
-      setAverageMood(Number.isFinite(avg) ? parseFloat(avg.toFixed(1)) : null);
-    } else {
-      setAverageMood(null);
-    }
-  };
-
-  useEffect(() => {
-    computeDerived(entries, period);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -347,6 +349,7 @@ export default function MoodTracker({ onNavigate }: MoodTrackerProps) {
                     clearMessages();
                     setPeriod('7');
                   }}
+                  disabled={chartLoading}
                   className={`px-4 py-2 rounded-xl transition-all ${
                     period === '7' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
@@ -358,6 +361,7 @@ export default function MoodTracker({ onNavigate }: MoodTrackerProps) {
                     clearMessages();
                     setPeriod('30');
                   }}
+                  disabled={chartLoading}
                   className={`px-4 py-2 rounded-xl transition-all ${
                     period === '30' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
@@ -366,13 +370,17 @@ export default function MoodTracker({ onNavigate }: MoodTrackerProps) {
                 </button>
               </div>
             </div>
-            {chartData && chartData.length > 0 ? (
+            {chartLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-teal-600 border-r-transparent"></div>
+              </div>
+            ) : chartData && chartData.length > 0 ? (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="date" stroke="#9ca3af" />
-                    <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} stroke="#9ca3af" />
+                    <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} stroke="#9ca3af" />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'white',
@@ -416,39 +424,50 @@ export default function MoodTracker({ onNavigate }: MoodTrackerProps) {
             {entries.length === 0 ? (
               <p className="text-gray-500">No entries yet.</p>
             ) : (
-              <div className="space-y-3">
-                {entries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{moodEmojis[entry.mood_score - 1]}</span>
-                        <div>
-                          <p className="text-gray-800">{moodLabels[entry.mood_score - 1]}</p>
-                          <p className="text-gray-500">
-                            {new Date(entry.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </p>
+              <>
+                <div className="space-y-3">
+                  {entries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{moodEmojis[entry.mood_score - 1]}</span>
+                          <div>
+                            <p className="text-gray-800">{moodLabels[entry.mood_score - 1]}</p>
+                            <p className="text-gray-500">
+                              {new Date(entry.created_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => startEdit(entry)}
+                            className="p-2 hover:bg-white rounded-xl transition-colors"
+                          >
+                            <Edit2 className="w-4 h-4 text-gray-600" />
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => startEdit(entry)}
-                          className="p-2 hover:bg-white rounded-xl transition-colors"
-                        >
-                          <Edit2 className="w-4 h-4 text-gray-600" />
-                        </button>
-                      </div>
+                      {entry.note && <p className="text-gray-600 ml-11">{entry.note}</p>}
                     </div>
-                    {entry.note && <p className="text-gray-600 ml-11">{entry.note}</p>}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+                {entries.length > 0 && (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalItems={totalItems}
+                    itemsPerPage={pageSize}
+                  />
+                )}
+              </>
             )}
           </div>
         </>

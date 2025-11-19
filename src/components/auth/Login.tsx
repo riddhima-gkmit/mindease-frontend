@@ -24,17 +24,8 @@ export default function Login({ onNavigate }: LoginProps) {
 
     try {
       await login(email, password);
-      // Navigation happens automatically via AuthContext
-      // Determine dashboard based on role
-      const userRole = email.includes('admin') ? 'admin' : 
-                      email.includes('therapist') ? 'therapist' : 'user';
-      if (userRole === 'admin') {
-        onNavigate('admin-dashboard');
-      } else if (userRole === 'therapist') {
-        onNavigate('therapist-dashboard');
-      } else {
-        onNavigate('user-dashboard');
-      }
+      // Navigation will be handled by App.tsx based on user role
+      // The DashboardRedirect component will handle routing
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Invalid email or password');
     } finally {

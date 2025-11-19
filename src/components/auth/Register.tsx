@@ -22,10 +22,49 @@ export default function Register({ onNavigate }: RegisterProps) {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [firstNameError, setFirstNameError] = useState('');
+  const [lastNameError, setLastNameError] = useState('');
+
+  const validateName = (name: string): boolean => {
+    return /^[a-zA-Z\s]*$/.test(name);
+  };
+
+  const handleFirstNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (validateName(value)) {
+      setFormData({ ...formData, firstName: value });
+      setFirstNameError('');
+    } else {
+      setFirstNameError('First name can only contain letters and spaces');
+    }
+  };
+
+  const handleLastNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (validateName(value)) {
+      setFormData({ ...formData, lastName: value });
+      setLastNameError('');
+    } else {
+      setLastNameError('Last name can only contain letters and spaces');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setFirstNameError('');
+    setLastNameError('');
+
+    // Validate names
+    if (!validateName(formData.firstName)) {
+      setFirstNameError('First name can only contain letters and spaces. No numbers or special symbols allowed.');
+      return;
+    }
+
+    if (!validateName(formData.lastName)) {
+      setLastNameError('Last name can only contain letters and spaces. No numbers or special symbols allowed.');
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -92,10 +131,13 @@ export default function Register({ onNavigate }: RegisterProps) {
                   type="text"
                   placeholder="John"
                   value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="rounded-2xl"
+                  onChange={handleFirstNameChange}
+                  className={`rounded-2xl ${firstNameError ? 'border-red-500' : ''}`}
                   required
                 />
+                {firstNameError && (
+                  <p className="text-red-600 text-sm">{firstNameError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
@@ -104,10 +146,13 @@ export default function Register({ onNavigate }: RegisterProps) {
                   type="text"
                   placeholder="Doe"
                   value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="rounded-2xl"
+                  onChange={handleLastNameChange}
+                  className={`rounded-2xl ${lastNameError ? 'border-red-500' : ''}`}
                   required
                 />
+                {lastNameError && (
+                  <p className="text-red-600 text-sm">{lastNameError}</p>
+                )}
               </div>
             </div>
 
@@ -172,7 +217,7 @@ export default function Register({ onNavigate }: RegisterProps) {
                   }`}
                 >
                   <User className="w-6 h-6 mx-auto mb-2 text-teal-600" />
-                  <p className="text-gray-700">User</p>
+                  <p className="text-gray-700">Patient</p>
                 </button>
                 <button
                   type="button"

@@ -16,14 +16,35 @@ export interface MoodAnalytics {
   }>;
 }
 
+export interface MoodChartData {
+  chart_data: Array<{
+    date: string; // YYYY-MM-DD format
+    mood_score: number; // 0-5 (0 means no entry)
+  }>;
+  average_mood: number;
+  total_entries: number;
+  days: number;
+}
+
 export interface CreateMoodEntryData {
   mood_score: number;
   note?: string;
 }
 
+// Paginated response interface
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 // Get all mood entries for the current user
-export const getMoodEntries = async (): Promise<MoodEntry[]> => {
-  const response = await api.get('/mood/');
+export const getMoodEntries = async (page?: number, pageSize?: number): Promise<PaginatedResponse<MoodEntry> | MoodEntry[]> => {
+  const params: any = {};
+  if (page !== undefined) params.page = page;
+  if (pageSize !== undefined) params.page_size = pageSize;
+  const response = await api.get('/mood/', { params });
   return response.data;
 };
 
@@ -42,6 +63,12 @@ export const updateMoodEntry = async (moodId: string, data: Partial<CreateMoodEn
 // Get mood analytics (7-day summary)
 export const getMoodAnalytics = async (): Promise<MoodAnalytics> => {
   const response = await api.get('/mood/analytics/');
+  return response.data;
+};
+
+// Get mood chart data with prefilled zeros for missing days
+export const getMoodChartData = async (days: number = 30): Promise<MoodChartData> => {
+  const response = await api.get('/mood/chart-data/', { params: { days } });
   return response.data;
 };
 
