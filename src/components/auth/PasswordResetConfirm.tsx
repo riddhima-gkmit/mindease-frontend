@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { Heart, Lock, CheckCircle, ArrowLeft, AlertCircle } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { authAPI } from '../../api/auth';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Alert, AlertDescription } from '../ui/alert';
+import type { View } from '../../App';
 
 interface PasswordResetConfirmProps {
   uidb64: string;
   token: string;
-  onNavigate: (view: any) => void;
+  onNavigate: (view: View) => void;
 }
 
 export default function PasswordResetConfirm({ uidb64, token, onNavigate }: PasswordResetConfirmProps) {
-  const { confirmPasswordReset } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,7 +37,7 @@ export default function PasswordResetConfirm({ uidb64, token, onNavigate }: Pass
     setLoading(true);
 
     try {
-      await confirmPasswordReset(uidb64, token, password);
+      await authAPI.confirmPasswordReset(uidb64, token, password);
       setSuccess(true);
       // Clear URL after successful reset
       window.history.replaceState({}, '', '/');

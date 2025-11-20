@@ -1,21 +1,5 @@
-import api from './auth';
-
-export interface Appointment {
-  id: string;
-  therapist: string;
-  therapist_name: string;
-  therapist_email: string;
-  date: string;
-  time_slot: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  therapist_note?: string;
-}
-
-export interface CreateAppointmentData {
-  therapist: string;
-  date: string;
-  time_slot: string;
-}
+import api from './axios';
+import type { Appointment, CreateAppointmentData } from '../types/appointments';
 
 // Get all appointments for the current user
 export const getAppointments = async (): Promise<Appointment[]> => {

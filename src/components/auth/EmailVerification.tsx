@@ -1,6 +1,4 @@
-// import { useState } from 'react';
 import { Heart, Mail } from 'lucide-react';
-// import { Heart, Mail, CheckCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 
 interface EmailVerificationProps {
@@ -8,17 +6,6 @@ interface EmailVerificationProps {
 }
 
 export default function EmailVerification({ onNavigate }: EmailVerificationProps) {
-  // const [resending, setResending] = useState(false);
-  // const [resent, setResent] = useState(false);
-
-  // const handleResend = async () => {
-  //   setResending(true);
-  //   // TODO: Implement resend verification email API call
-  //   await new Promise(resolve => setTimeout(resolve, 1000));
-  //   setResent(true);
-  //   setResending(false);
-  //   setTimeout(() => setResent(false), 3000);
-  // };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -42,23 +29,8 @@ export default function EmailVerification({ onNavigate }: EmailVerificationProps
             We've sent a verification link to your email address. Please check your inbox and click the link to verify your account.
           </p>
 
-          {/* {resent && (
-            <div className="mb-6 p-4 bg-teal-50 rounded-2xl flex items-center justify-center gap-2">
-              <CheckCircle className="w-5 h-5 text-teal-600" />
-              <p className="text-teal-700">Verification email resent!</p>
-            </div>
-          )} */}
 
           <div className="space-y-3">
-            {/* <Button
-              onClick={handleResend}
-              disabled={resending}
-              variant="outline"
-              className="w-full rounded-2xl h-12"
-            >
-              {resending ? 'Sending...' : 'Resend verification email'}
-            </Button> */}
-
             <Button
               onClick={() => onNavigate('login')}
               className="w-full bg-gradient-to-r from-teal-400 to-purple-400 hover:from-teal-500 hover:to-purple-500 text-white rounded-2xl h-12"

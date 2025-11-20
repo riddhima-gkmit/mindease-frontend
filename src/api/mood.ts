@@ -1,25 +1,5 @@
-import api from './auth';
-
-export interface MoodEntry {
-  id: string;
-  mood_score: number; // 1-5 scale
-  note?: string;
-  created_at: string;
-}
-
-export interface MoodAnalytics {
-  average_mood: number;
-  trend: string;
-  chart_data: Array<{
-    date: string;
-    mood_score: number;
-  }>;
-}
-
-export interface CreateMoodEntryData {
-  mood_score: number;
-  note?: string;
-}
+import api from './axios';
+import type { MoodEntry, CreateMoodEntryData, MoodAnalytics } from '../types/mood';
 
 // Get all mood entries for the current user
 export const getMoodEntries = async (): Promise<MoodEntry[]> => {

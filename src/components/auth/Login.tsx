@@ -26,11 +26,9 @@ export default function Login({ onNavigate }: LoginProps) {
       await login(email, password);
       // Navigation happens automatically via AuthContext
       // Determine dashboard based on role
-      const userRole = email.includes('admin') ? 'admin' : 
-                      email.includes('therapist') ? 'therapist' : 'user';
-      if (userRole === 'admin') {
+      if (email.includes('admin')) {
         onNavigate('admin-dashboard');
-      } else if (userRole === 'therapist') {
+      } else if (email.includes('therapist')) {
         onNavigate('therapist-dashboard');
       } else {
         onNavigate('user-dashboard');
