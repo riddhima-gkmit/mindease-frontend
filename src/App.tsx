@@ -17,7 +17,16 @@ export type View =
   | 'register' 
   | 'email-verification' 
   | 'password-reset'
-  | 'password-reset-confirm';
+  | 'password-reset-confirm'
+  | 'user-dashboard'
+  | 'mood-tracker'
+  | 'therapist-directory'
+  | 'recommendations'
+  | 'user-profile'
+  | 'therapist-dashboard'
+  | 'therapist-appointments'
+  | 'therapist-availability'
+  | 'admin-dashboard';
 
 // Wrapper components for auth pages
 function LoginPage() {
