@@ -10,9 +10,6 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
-  verifyEmail: (uidb64: string, token: string) => Promise<void>;
-  requestPasswordReset: (email: string) => Promise<void>;
-  confirmPasswordReset: (uidb64: string, token: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -79,18 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const verifyEmail = async (uidb64: string, token: string) => {
-    await authAPI.verifyEmail(uidb64, token);
-  };
-
-  const requestPasswordReset = async (email: string) => {
-    await authAPI.requestPasswordReset(email);
-  };
-
-  const confirmPasswordReset = async (uidb64: string, token: string, newPassword: string) => {
-    await authAPI.confirmPasswordReset(uidb64, token, newPassword);
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -100,9 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
-        verifyEmail,
-        requestPasswordReset,
-        confirmPasswordReset,
       }}
     >
       {children}

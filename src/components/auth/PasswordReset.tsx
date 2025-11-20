@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Heart, Mail, CheckCircle, ArrowLeft } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { authAPI } from '../../api/auth';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -13,7 +13,6 @@ interface PasswordResetProps {
 }
 
 export default function PasswordReset({ onNavigate }: PasswordResetProps) {
-  const { requestPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -25,7 +24,7 @@ export default function PasswordReset({ onNavigate }: PasswordResetProps) {
     setLoading(true);
 
     try {
-      await requestPasswordReset(email);
+      await authAPI.requestPasswordReset(email);
       setSubmitted(true);
     } catch (err: any) {
       if (err.response?.status === 404) {

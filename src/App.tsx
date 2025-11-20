@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { authAPI } from './api/auth';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import EmailVerification from './components/auth/EmailVerification';
@@ -77,7 +78,6 @@ function PasswordResetPage() {
 function EmailVerificationRoute() {
   const { uidb64, token } = useParams<{ uidb64: string; token: string }>();
   const navigate = useNavigate();
-  const { verifyEmail } = useAuth();
   const [verifying, setVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState('');
   const [verificationSuccess, setVerificationSuccess] = useState(false);
@@ -90,7 +90,7 @@ function EmailVerificationRoute() {
         setVerificationSuccess(false);
         
         try {
-          await verifyEmail(uidb64, token);
+          await authAPI.verifyEmail(uidb64, token);
           setVerificationSuccess(true);
           setTimeout(() => {
             navigate('/login');
@@ -104,7 +104,7 @@ function EmailVerificationRoute() {
       };
       handleVerification();
     }
-  }, [uidb64, token, verifyEmail, navigate]);
+  }, [uidb64, token, navigate]);
 
   const handleNavigate = (view: string) => {
     if (view === 'login') navigate('/login');
