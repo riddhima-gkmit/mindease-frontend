@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Smile, Calendar, Lightbulb, TrendingUp, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
-import { getAppointments, cancelAppointment, type PaginatedResponse } from '../../api/appointments';
-import { getMoodEntries, getMoodChartData, type PaginatedResponse as MoodPaginatedResponse } from '../../api/mood';
-import type { Appointment } from '../../api/appointments';
-import type { MoodEntry } from '../../api/mood';
+import { getAppointments, cancelAppointment } from '../../api/appointments';
+import type { PaginatedResponse } from '../../types/appointments';
+import { getMoodEntries, getMoodChartData } from '../../api/mood';
+import type { Appointment } from '../../types/appointments';
+import type { MoodEntry } from '../../types/mood';
+import type { PaginatedResponse as MoodPaginatedResponse } from '../../types/mood';
 
 interface UserDashboardProps {
   onNavigate: (view: any, data?: any) => void;

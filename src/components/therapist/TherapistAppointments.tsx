@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Calendar, Video, MapPin, FileText, Clock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { getAppointments, addAppointmentNotes, type PaginatedResponse } from '../../api/appointments';
-import type { Appointment } from '../../api/appointments';
+import { getAppointments, addAppointmentNotes } from '../../api/appointments';
+import type { Appointment, PaginatedResponse } from '../../types/appointments';
 import Pagination from '../ui/pagination';
 
 interface TherapistAppointmentsProps {

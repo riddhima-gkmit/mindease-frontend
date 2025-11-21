@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getTherapistProfile } from '../api/therapists';
-import type { TherapistProfile } from '../api/therapists';
+import type { TherapistProfile } from '../types/therapists';
 
 // Custom event name for profile updates
 const PROFILE_UPDATE_EVENT = 'therapist-profile-updated';

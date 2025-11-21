@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Sparkles, BookOpen, Heart } from 'lucide-react';
-import { getRecommendations, type RecommendationsResponse, type RecommendationItem } from '../../api/recommendations';
+import { getRecommendations } from '../../api/recommendations';
+import type { RecommendationsResponse, RecommendationItem } from '../../types/recommendations';
 import { Button } from '../ui/button';
 
 interface RecommendationsProps {

@@ -8,7 +8,8 @@ import { Textarea } from '../ui/textarea';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTherapistProfile, updateTherapistProfile, createTherapistProfile } from '../../api/therapists';
 import { triggerProfileRefetch } from '../../hooks/useTherapistProfile';
-import type { TherapistProfile, UpdateTherapistProfileData } from '../../api/therapists';
+import type { TherapistProfile } from '../../types/therapists';
+import type { UpdateTherapistProfileData } from '../../types/therapists';
 
 interface TherapistProfileProps {
   onNavigate: (view: any) => void;
@@ -105,7 +106,7 @@ export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistP
   };
 
   const handleChange = (field: keyof UpdateTherapistProfileData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev: UpdateTherapistProfileData) => ({ ...prev, [field]: value }));
   };
 
   if (loading) {

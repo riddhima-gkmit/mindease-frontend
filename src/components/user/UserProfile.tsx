@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { User as UserIcon, Mail, Calendar, LogOut as LogOutIcon, Settings, Bell, Shield } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { authAPI, type User } from '../../api/auth';
+import { authAPI } from '../../api/auth';
+import type { User } from '../../types/auth';
 import { Button } from '../ui/button';
 import AccountSettingsDialog from './AccountSettingsDialog';
 import InfoDialog from './InfoDialog';

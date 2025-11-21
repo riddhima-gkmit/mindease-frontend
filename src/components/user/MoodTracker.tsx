@@ -5,7 +5,9 @@ import { Heart, Calendar, TrendingUp, Edit2 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { getMoodEntries, createMoodEntry, updateMoodEntry, getMoodChartData, type MoodEntry, type PaginatedResponse } from '../../api/mood';
+import { getMoodEntries, createMoodEntry, updateMoodEntry, getMoodChartData } from '../../api/mood';
+import type { MoodEntry } from '../../types/mood';
+import type { PaginatedResponse } from '../../types/appointments';
 import Pagination from '../ui/pagination';
 
 interface MoodTrackerProps {

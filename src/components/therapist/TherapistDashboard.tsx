@@ -3,7 +3,7 @@ import { Calendar, Users, Clock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { getAppointments } from '../../api/appointments';
-import type { Appointment } from '../../api/appointments';
+import type { Appointment } from '../../types/appointments';
 
 interface TherapistDashboardProps {
   onNavigate: (view: any) => void;
