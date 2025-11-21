@@ -380,7 +380,18 @@ export default function MoodTracker({ onNavigate: _onNavigate }: MoodTrackerProp
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="date" stroke="#9ca3af" />
-                    <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} stroke="#9ca3af" />
+                    <YAxis 
+                      domain={[0, 5]} 
+                      ticks={[0, 1, 2, 3, 4, 5]} 
+                      stroke="#9ca3af"
+                      label={{ 
+                        value: 'Mood Score', 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        offset: 10,
+                        style: { textAnchor: 'middle', fill: '#4b5563', fontSize: '14px', fontWeight: 500 } 
+                      }}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'white',
@@ -441,6 +452,12 @@ export default function MoodTracker({ onNavigate: _onNavigate }: MoodTrackerProp
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric',
+                              })}
+                              {' • '}
+                              {new Date(entry.created_at).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
                               })}
                             </p>
                           </div>

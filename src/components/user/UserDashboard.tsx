@@ -3,7 +3,7 @@ import { Smile, Calendar, Lightbulb, TrendingUp, X, AlertTriangle } from 'lucide
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { getAppointments, cancelAppointment, type PaginatedResponse } from '../../api/appointments';
-import { getMoodEntries, getMoodAnalytics, type PaginatedResponse as MoodPaginatedResponse } from '../../api/mood';
+import { getMoodEntries, getMoodChartData, type PaginatedResponse as MoodPaginatedResponse } from '../../api/mood';
 import type { Appointment } from '../../api/appointments';
 import type { MoodEntry } from '../../api/mood';
 
@@ -43,7 +43,7 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
           console.error('Error fetching mood entries:', err);
           return [];
         }),
-        getMoodAnalytics().catch((err) => {
+        getMoodChartData(7).catch((err) => {
           console.error('Error fetching mood analytics:', err);
           return null;
         }),

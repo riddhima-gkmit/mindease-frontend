@@ -37,6 +37,7 @@
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@vite-pwa/assets-generator": "^1.0.2",
     "@vitejs/plugin-react": "^5.1.0",
     "@vitest/coverage-v8": "^2.1.8",
     "eslint": "^9.39.1",
@@ -50,6 +51,11 @@
     "vite": "^7.2.2",
     "vite-plugin-pwa": "^1.1.0",
     "vitest": "^2.1.8",
+    "workbox-core": "^7.4.0",
     "workbox-window": "^7.4.0"
+  },
+  "overrides": {
+    "sharp": "^0.33.5",
+    "sharp-ico": "^0.1.5"
   }
 }

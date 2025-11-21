@@ -26,14 +26,14 @@ export default function TherapistDashboard({ onNavigate }: TherapistDashboardPro
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todaysAppointments = allAppointments.filter(a => {
-          try {
-            const d = new Date(a.date);
-            d.setHours(0, 0, 0, 0);
+            try {
+              const d = new Date(a.date);
+              d.setHours(0, 0, 0, 0);
             return d.getTime() === today.getTime() && 
                    (a.status === 'confirmed' || a.status === 'pending');
-          } catch {
-            return false;
-          }
+            } catch {
+              return false;
+            }
         });
         setTodaysAppointments(todaysAppointments);
       } finally {

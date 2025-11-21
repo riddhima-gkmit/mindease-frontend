@@ -217,7 +217,7 @@ export default function Register({ onNavigate }: RegisterProps) {
                   }`}
                 >
                   <User className="w-6 h-6 mx-auto mb-2 text-teal-600" />
-                  <p className="text-gray-700">Patient</p>
+                  <p className="text-gray-700">Person</p>
                 </button>
                 <button
                   type="button"

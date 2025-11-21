@@ -20,6 +20,7 @@ import TherapistDashboard from './components/therapist/TherapistDashboard';
 import TherapistAppointments from './components/therapist/TherapistAppointments';
 import TherapistAvailability from './components/therapist/TherapistAvailability';
 import TherapistProfile from './components/therapist/TherapistProfile';
+import PWABadge from './components/PWABadge';
 import { Button } from './components/ui/button';
 import { LogOut } from 'lucide-react';
 
@@ -520,6 +521,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <PWABadge />
     </AuthProvider>
   );
 }

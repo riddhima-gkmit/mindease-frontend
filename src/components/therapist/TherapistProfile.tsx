@@ -14,7 +14,7 @@ interface TherapistProfileProps {
   onNavigate: (view: any) => void;
 }
 
-export default function TherapistProfile({ onNavigate }: TherapistProfileProps) {
+export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistProfileProps) {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [profile, setProfile] = useState<TherapistProfile | null>(null);
@@ -220,7 +220,7 @@ export default function TherapistProfile({ onNavigate }: TherapistProfileProps) 
             id="experience_years"
             type="number"
             min="0"
-            max="100"
+            max="55"
             value={formData.experience_years}
             onChange={(e) => handleChange('experience_years', parseInt(e.target.value) || 0)}
             placeholder="0"

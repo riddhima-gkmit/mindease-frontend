@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Clock, Plus, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { getTherapistProfile, createAvailability, getTherapistAvailability } from '../../api/therapists';
-import type { TherapistAvailability as TherapistAvailabilityType } from '../../api/therapists';
 
 interface TherapistAvailabilityProps {
   onNavigate: (view: any) => void;
@@ -38,7 +37,7 @@ const timeFrom24Hour = (time24: string): string => {
   }
 };
 
-export default function TherapistAvailability({ onNavigate }: TherapistAvailabilityProps) {
+export default function TherapistAvailability({ onNavigate: _onNavigate }: TherapistAvailabilityProps) {
   const [availability, setAvailability] = useState<{[key: string]: string[]}>({
     'Monday': [],
     'Tuesday': [],

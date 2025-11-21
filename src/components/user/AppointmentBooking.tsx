@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, Video, MapPin, CheckCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '../ui/button';
+import { getTherapistBookedSlots } from '../../api/appointments';
 
 export interface BookingSlot {
   id: string;
@@ -53,6 +54,8 @@ export default function AppointmentBooking({
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>(''); // display label like "10:00 AM"
   const [selectedTimeRaw, setSelectedTimeRaw] = useState<string>(''); // "HH:MM"
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]); // Array of booked time slots in "HH:MM:SS" format
+  const [loadingBookedSlots, setLoadingBookedSlots] = useState<boolean>(false);
 
   const modes = useMemo(() => {
     const mode = (therapist.consultation_mode || '').toLowerCase();
@@ -124,8 +127,60 @@ export default function AppointmentBooking({
     if (!selectedDate) return [];
     const dow = new Date(selectedDate).getDay();
     const times = derived.byDow[dow] || [];
-    return times.map((t) => ({ raw: t, label: toAmPm(t) }));
-  }, [selectedDate, derived]);
+    
+    // Get current date and time
+    const now = new Date();
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const currentHour = now.getHours();
+    
+    return times
+      .map((t) => {
+        // Check if this time slot is booked by comparing "HH:MM" with "HH:MM:SS"
+        const timeWithSeconds = `${t}:00`;
+        const isBooked = bookedSlots.includes(timeWithSeconds);
+        
+        // Get hour from time slot (HH:MM format)
+        const [slotHour] = t.split(':').map(Number);
+        
+        // Check if time is in the past (only for today)
+        const isPast = selectedDate === today && slotHour <= currentHour;
+        
+        return { raw: t, label: toAmPm(t), isBooked, isPast };
+      })
+      .filter((t) => !t.isPast); // Filter out past time slots
+  }, [selectedDate, derived, bookedSlots]);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (open) {
+      setStep('details');
+      setSelectedMode('');
+      setSelectedDate('');
+      setSelectedTime('');
+      setSelectedTimeRaw('');
+      setBookedSlots([]);
+    }
+  }, [open]);
+
+  // Fetch booked slots whenever the selected date changes
+  useEffect(() => {
+    if (selectedDate && therapist.id) {
+      setLoadingBookedSlots(true);
+      getTherapistBookedSlots(therapist.id, selectedDate)
+        .then((slots) => {
+          setBookedSlots(slots);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch booked slots:', err);
+          setBookedSlots([]);
+        })
+        .finally(() => {
+          setLoadingBookedSlots(false);
+        });
+    } else {
+      setBookedSlots([]);
+    }
+  }, [selectedDate, therapist.id]);
 
   // Sync step with success/error props from parent
   useEffect(() => {
@@ -215,7 +270,10 @@ export default function AppointmentBooking({
                 {modes.map((mode) => (
                   <button
                     key={mode}
-                    onClick={() => setSelectedMode(mode)}
+                    onClick={() => {
+                      setSelectedMode(mode);
+                      setStep('schedule');
+                    }}
                     className={`p-4 rounded-2xl border-2 transition-all text-left ${
                       selectedMode === mode ? 'border-teal-400 bg-teal-50' : 'border-gray-200 hover:border-teal-200 hover:bg-teal-50'
                     }`}
@@ -238,14 +296,6 @@ export default function AppointmentBooking({
                   </button>
                 ))}
               </div>
-
-              <Button
-                onClick={() => setStep('schedule')}
-                disabled={!selectedMode}
-                className="w-full mt-6 bg-gradient-to-r from-teal-400 to-purple-400 hover:from-teal-500 hover:to-purple-500 text-white rounded-2xl h-12"
-              >
-                Continue
-              </Button>
             </div>
           </div>
         )}
@@ -282,7 +332,9 @@ export default function AppointmentBooking({
             {selectedDate && (
               <div className="bg-white rounded-3xl p-6 shadow-md">
                 <h3 className="mb-4">Select Time</h3>
-                {availableTimesForSelectedDate.length === 0 ? (
+                {loadingBookedSlots ? (
+                  <p className="text-gray-600">Loading available slots...</p>
+                ) : availableTimesForSelectedDate.length === 0 ? (
                   <p className="text-gray-600">No times available for the selected date.</p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -290,14 +342,24 @@ export default function AppointmentBooking({
                       <button
                         key={t.raw}
                         onClick={() => {
-                          setSelectedTime(t.label);
-                          setSelectedTimeRaw(t.raw);
+                          if (!t.isBooked) {
+                            setSelectedTime(t.label);
+                            setSelectedTimeRaw(t.raw);
+                          }
                         }}
-                        className={`p-4 rounded-2xl border-2 transition-all ${
-                          selectedTimeRaw === t.raw ? 'border-teal-400 bg-teal-50' : 'border-gray-200 hover:border-teal-200 hover:bg-teal-50'
+                        disabled={t.isBooked}
+                        className={`p-4 rounded-2xl border-2 transition-all relative ${
+                          t.isBooked
+                            ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
+                            : selectedTimeRaw === t.raw
+                            ? 'border-teal-400 bg-teal-50'
+                            : 'border-gray-200 hover:border-teal-200 hover:bg-teal-50'
                         }`}
                       >
-                        <p className="text-gray-800">{t.label}</p>
+                        <p className={t.isBooked ? 'text-gray-400' : 'text-gray-800'}>{t.label}</p>
+                        {t.isBooked && (
+                          <span className="text-xs text-gray-400 mt-1 block">Booked</span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -366,8 +428,14 @@ export default function AppointmentBooking({
               <CheckCircle className="w-10 h-10 text-teal-600" />
             </div>
             <h2 className="mb-4">Booking Confirmed!</h2>
-            <p className="text-gray-600 mb-6">Your appointment has been successfully scheduled.</p>
-            <Button className="w-full rounded-2xl" variant="outline" onClick={onClose}>
+            <p className="text-gray-600 mb-2">Your appointment has been successfully scheduled.</p>
+            <p className="text-gray-500 text-sm mb-6">
+              📧 We've sent a confirmation email with the appointment details to your registered email address.
+            </p>
+            <Button 
+              className="w-full bg-gradient-to-r from-teal-400 to-purple-400 hover:from-teal-500 hover:to-purple-500 text-white rounded-2xl h-12" 
+              onClick={onClose}
+            >
               Close
             </Button>
           </div>

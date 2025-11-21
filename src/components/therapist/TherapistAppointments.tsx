@@ -10,7 +10,7 @@ interface TherapistAppointmentsProps {
   onNavigate: (view: any) => void;
 }
 
-export default function TherapistAppointments({ onNavigate }: TherapistAppointmentsProps) {
+export default function TherapistAppointments({ onNavigate: _onNavigate }: TherapistAppointmentsProps) {
   const [view, setView] = useState<'upcoming' | 'past'>('upcoming');
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);

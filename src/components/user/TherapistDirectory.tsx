@@ -120,10 +120,7 @@ export default function TherapistDirectory({ onNavigate: _onNavigate }: Therapis
         time_slot: time.length === 5 ? `${time}:00` : time,
       });
       setBookingSuccess('Appointment requested');
-      // Optionally close after a moment
-      setTimeout(() => {
-        setSelected(null);
-      }, 800);
+      // Modal will stay open until user manually closes it
     } catch (e: any) {
       // Handle different error response formats from DRF
       let msg = 'Failed to book appointment';
@@ -328,7 +325,11 @@ export default function TherapistDirectory({ onNavigate: _onNavigate }: Therapis
               {selected && (
                 <AppointmentBooking
                   open={true}
-                  onClose={() => setSelected(null)}
+                  onClose={() => {
+                    setSelected(null);
+                    setBookingSuccess('');
+                    setBookingError('');
+                  }}
                   therapist={{
                     id: selected.id,
                     username: selected.username,

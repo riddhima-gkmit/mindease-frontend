@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { User, RegisterData, LoginResponse } from '../types/auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -58,36 +59,6 @@ api.interceptors.response.use(
   }
 );
 
-export interface RegisterData {
-  email: string;
-  password: string;
-  first_name: string;
-  last_name: string;
-  role: 'patient' | 'therapist';
-  username?: string;
-}
-
-export interface LoginResponse {
-  access: string;
-  refresh: string;
-  user: {
-    id: string;
-    username: string;
-    email: string;
-    role: string;
-  };
-}
-
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: string;
-  email_verified: boolean;
-  first_name?: string;
-  last_name?: string;
-  date_joined?: Date;
-}
 
 export const authAPI = {
   register: async (data: RegisterData) => {
