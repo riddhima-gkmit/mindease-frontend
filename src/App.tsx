@@ -99,7 +99,6 @@ function TherapistLayout({ children }: { children: React.ReactNode }) {
   // This ensures navbar shows immediately if has_profile is true in localStorage
   const storedHasProfile = localStorage.getItem('has_profile');
   const hasProfileFromStorage = storedHasProfile === 'true';
-  const hasProfileToUse = storedHasProfile !== null ? hasProfileFromStorage : hasProfile;
   
   // Show bottom nav if has_profile is true (from localStorage or hook)
   // Don't wait for loading if we already know from localStorage
