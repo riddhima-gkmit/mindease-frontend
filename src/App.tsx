@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useTherapistProfile } from './hooks/useTherapistProfile';
 import Login from './components/auth/Login';
@@ -95,8 +95,17 @@ function TherapistLayout({ children }: { children: React.ReactNode }) {
     navigate(viewToPath(view, 'therapist'));
   };
 
-  // Don't show bottom nav if therapist doesn't have a profile
-  const showBottomNav = !profileLoading && hasProfile;
+  // Check localStorage first for has_profile, then use hook result
+  // This ensures navbar shows immediately if has_profile is true in localStorage
+  const storedHasProfile = localStorage.getItem('has_profile');
+  const hasProfileFromStorage = storedHasProfile === 'true';
+  const hasProfileToUse = storedHasProfile !== null ? hasProfileFromStorage : hasProfile;
+  
+  // Show bottom nav if has_profile is true (from localStorage or hook)
+  // Don't wait for loading if we already know from localStorage
+  const showBottomNav = storedHasProfile !== null 
+    ? hasProfileFromStorage  // If localStorage has value, use it immediately
+    : (!profileLoading && hasProfile);  // Otherwise wait for hook
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-purple-50 to-white">
@@ -183,9 +192,12 @@ function EmailVerificationRoute() {
   const [verifying, setVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState('');
   const [verificationSuccess, setVerificationSuccess] = useState(false);
+  const hasVerified = useRef(false);
 
   useEffect(() => {
-    if (uidb64 && token) {
+    if (uidb64 && token && !hasVerified.current) {
+      hasVerified.current = true;
+      
       const handleVerification = async () => {
         setVerifying(true);
         setVerificationError('');
@@ -206,7 +218,8 @@ function EmailVerificationRoute() {
       };
       handleVerification();
     }
-  }, [uidb64, token, verifyEmail, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uidb64, token]);
 
   const handleNavigate = (view: string) => {
     if (view === 'login') navigate('/login');

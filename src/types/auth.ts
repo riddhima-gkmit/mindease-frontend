@@ -15,6 +15,8 @@ export interface LoginResponse {
     username: string;
     email: string;
     role: string;
+    available_roles?: string[];
+    has_profile?: boolean;
   };
 }
 
@@ -27,4 +29,5 @@ export interface User {
   first_name?: string;
   last_name?: string;
   date_joined?: Date;
+  has_profile?: boolean;
 }

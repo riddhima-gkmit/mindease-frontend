@@ -66,8 +66,13 @@ export const authAPI = {
     return response.data;
   },
 
-  login: async (email: string, password: string): Promise<LoginResponse> => {
-    const response = await api.post('/auth/login/', { email, password });
+  login: async (email: string, password: string, role?: string): Promise<LoginResponse> => {
+    const response = await api.post('/auth/login/', { email, password, role });
+    return response.data;
+  },
+
+  addRole: async (role: string) => {
+    const response = await api.post('/auth/add-role/', { role });
     return response.data;
   },
 
@@ -96,6 +101,22 @@ export const authAPI = {
   updateProfile: async (data: Partial<User>) => {
     const response = await api.put('/auth/profile/', data);
     return response.data;
+  },
+
+  logout: async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (refreshToken) {
+      try {
+        const response = await api.post('/auth/logout/', {
+          refresh: refreshToken,
+        });
+        return response.data;
+      } catch (error) {
+        // Even if logout API fails, we still want to clear local tokens
+        console.error('Logout API failed:', error);
+        throw error;
+      }
+    }
   },
 };
 

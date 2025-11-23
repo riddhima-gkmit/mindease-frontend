@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
-import { User as UserIcon, Mail, Calendar, LogOut as LogOutIcon, Settings, Bell, Shield } from 'lucide-react';
+import { User as UserIcon, Mail, Calendar, LogOut as LogOutIcon, Settings, Bell, Shield, UserPlus, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { authAPI } from '../../api/auth';
 import type { User } from '../../types/auth';
 import { Button } from '../ui/button';
+import { Alert, AlertDescription } from '../ui/alert';
 import AccountSettingsDialog from './AccountSettingsDialog';
 import InfoDialog from './InfoDialog';
+import ConfirmationPopup from '../ui/ConfirmationPopup';
 
 interface UserProfileProps {
   onNavigate: (view: any) => void;
 }
 
 export default function UserProfile({ onNavigate }: UserProfileProps) {
-  const { logout } = useAuth();
+  const { logout, availableRoles, addRole } = useAuth();
   const [profile, setProfile] = useState<User | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -21,6 +23,10 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [addRoleLoading, setAddRoleLoading] = useState(false);
+  const [addRoleError, setAddRoleError] = useState('');
+  const [addRoleSuccess, setAddRoleSuccess] = useState(false);
+  const [showConfirmationPopup, setShowConfirmationPopup] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -39,9 +45,24 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
     })();
   }, []);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     onNavigate('login');
+  };
+
+  const handleAddTherapistRole = async () => {
+    setAddRoleLoading(true);
+    setAddRoleError('');
+    setAddRoleSuccess(false);
+    try {
+      await addRole('therapist');
+      setAddRoleSuccess(true);
+      setShowConfirmationPopup(true);
+    } catch (err: any) {
+      setAddRoleError(err.response?.data?.error || 'Failed to add therapist role');
+    } finally {
+      setAddRoleLoading(false);
+    }
   };
 
   // Saving handled within AccountSettingsDialog
@@ -188,6 +209,42 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
         description="Manage data export, account deletion, and security settings will be available here in an upcoming update."
       />
 
+      {/* Add Therapist Role */}
+      {!availableRoles.includes('therapist') && (
+        <div className="bg-gradient-to-r from-purple-50 to-teal-50 rounded-3xl p-6 shadow-md">
+          <h4 className="mb-2 flex items-center">
+            <UserPlus className="w-5 h-5 mr-2 text-purple-600" />
+            Become a Therapist
+          </h4>
+          <p className="text-gray-600 mb-4 text-sm">
+            Register as a therapist to help others on their mental health journey. You'll need admin approval to activate your therapist profile.
+          </p>
+          
+          {addRoleSuccess && (
+            <Alert className="mb-4 rounded-2xl border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                Therapist role added successfully! Please log out and log back in as Therapist to access therapist features. Your therapist profile will need admin approval.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {addRoleError && (
+            <Alert variant="destructive" className="mb-4 rounded-2xl">
+              <AlertDescription>{addRoleError}</AlertDescription>
+            </Alert>
+          )}
+          
+          <Button
+            onClick={handleAddTherapistRole}
+            disabled={addRoleLoading || addRoleSuccess}
+            className="w-full rounded-2xl h-12 bg-gradient-to-r from-purple-400 to-teal-400 hover:from-purple-500 hover:to-teal-500 text-white"
+          >
+            {addRoleLoading ? 'Adding Role...' : addRoleSuccess ? 'Role Added!' : 'Register as Therapist'}
+          </Button>
+        </div>
+      )}
+
       {/* Logout Button */}
       <div className="bg-white rounded-3xl p-6 shadow-md">
         <Button
@@ -210,6 +267,13 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           Contact Support
         </Button>
       </div> */}
+
+      {/* Confirmation Popup */}
+      <ConfirmationPopup
+        show={showConfirmationPopup}
+        message="Therapist role added successfully! Please log out and log back in as Therapist to access therapist features."
+        onClose={() => setShowConfirmationPopup(false)}
+      />
     </div>
   );
 }

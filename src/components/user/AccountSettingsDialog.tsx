@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -29,6 +29,18 @@ export default function AccountSettingsDialog({
   const [success, setSuccess] = useState('');
   const [firstNameError, setFirstNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
+
+  // Update state when props change (when dialog opens with new data)
+  useEffect(() => {
+    if (open) {
+      setFirstName(initialFirstName);
+      setLastName(initialLastName);
+      setError('');
+      setSuccess('');
+      setFirstNameError('');
+      setLastNameError('');
+    }
+  }, [open, initialFirstName, initialLastName]);
 
   if (!open) return null;
 
@@ -63,14 +75,19 @@ export default function AccountSettingsDialog({
     setFirstNameError('');
     setLastNameError('');
 
-    // Validate names
-    if (!validateName(firstName)) {
-      setFirstNameError('First name can only contain letters and spaces. No numbers or special symbols allowed.');
+    // Trim values
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+
+    // Check for empty or whitespace-only values
+    if (!trimmedFirstName) {
+      setFirstNameError('First name cannot be empty or contain only spaces');
       return;
     }
 
-    if (!validateName(lastName)) {
-      setLastNameError('Last name can only contain letters and spaces. No numbers or special symbols allowed.');
+    // Validate names
+    if (!validateName(trimmedFirstName)) {
+      setFirstNameError('First name can only contain letters and spaces. No numbers or special symbols allowed.');
       return;
     }
 
@@ -79,15 +96,20 @@ export default function AccountSettingsDialog({
       await authAPI.updateProfile({
         username,
         // @ts-ignore backend expects snake_case
-        first_name: firstName,
+        first_name: trimmedFirstName,
         // @ts-ignore backend expects snake_case
-        last_name: lastName,
+        last_name: trimmedLastName,
       } as any);
       setSuccess('Profile updated');
       if (onSaved) await onSaved();
-      setTimeout(() => onClose(), 600);
+      setTimeout(() => onClose(), 3000);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || 'Failed to update profile');
+      const errorMessage = e?.response?.data?.first_name?.[0] || 
+                          e?.response?.data?.last_name?.[0] ||
+                          e?.response?.data?.error || 
+                          e?.message || 
+                          'Failed to update profile';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -109,6 +131,7 @@ export default function AccountSettingsDialog({
                 value={firstName} 
                 onChange={handleFirstNameChange} 
                 className={`rounded-2xl ${firstNameError ? 'border-red-500' : ''}`}
+                required
               />
               {firstNameError && (
                 <p className="text-red-600 text-sm">{firstNameError}</p>

@@ -19,14 +19,16 @@ export default function TopNav({ onNavigate }: TopNavProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          {user?.first_name && user?.last_name && (
           <button
             onClick={() => onNavigate('user-profile')}
             className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-2xl transition-colors"
           >
             <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-purple-400 rounded-full flex items-center justify-center text-white text-sm font-medium">
-              {user?.first_name?.charAt(0)}{user?.last_name?.charAt(0)}
+                {user.first_name.charAt(0)}{user.last_name.charAt(0)}
             </div>
           </button>
+          )}
         </div>
       </div>
     </div>

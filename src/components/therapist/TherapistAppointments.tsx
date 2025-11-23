@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Video, MapPin, FileText, Clock } from 'lucide-react';
+import { Calendar, FileText, Clock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { getAppointments, addAppointmentNotes } from '../../api/appointments';
+import { getAppointments, addAppointmentNotes, approveAppointment, rejectAppointment } from '../../api/appointments';
 import type { Appointment, PaginatedResponse } from '../../types/appointments';
 import Pagination from '../ui/pagination';
 
@@ -33,7 +33,7 @@ export default function TherapistAppointments({ onNavigate: _onNavigate }: Thera
       setLoading(true);
       setError('');
       const data = await getAppointments(page, pageSize).catch(() => []);
-      
+
       // Check if response is paginated
       if (data && typeof data === 'object' && 'results' in data) {
         const paginatedData = data as PaginatedResponse<Appointment>;
@@ -133,11 +133,6 @@ export default function TherapistAppointments({ onNavigate: _onNavigate }: Thera
     return appointment.patient_email || 'Appointment';
   };
 
-  const getAppointmentType = (_appointment: Appointment) => {
-    // Default to Video Call, can be enhanced later with consultation_mode
-    return 'Video Call';
-  };
-
   const handleAddNotes = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setSessionNotes(appointment.therapist_note || '');
@@ -151,14 +146,14 @@ export default function TherapistAppointments({ onNavigate: _onNavigate }: Thera
       setSavingNotes(true);
       setError('');
       await addAppointmentNotes(selectedAppointment.id, sessionNotes);
-      
+
       // Update local state
-      setAppointments(prev => prev.map(a => 
-        a.id === selectedAppointment.id 
+      setAppointments(prev => prev.map(a =>
+        a.id === selectedAppointment.id
           ? { ...a, therapist_note: sessionNotes, status: 'completed' as const }
           : a
       ));
-      
+
       setShowNotesModal(false);
       setSessionNotes('');
       setSelectedAppointment(null);
@@ -166,6 +161,28 @@ export default function TherapistAppointments({ onNavigate: _onNavigate }: Thera
       setError(err.response?.data?.error || 'Failed to save notes. Please try again.');
     } finally {
       setSavingNotes(false);
+    }
+  };
+
+  const handleApprove = async (appointmentId: string) => {
+    try {
+      setError('');
+      await approveAppointment(appointmentId);
+      // Reload appointments to reflect the change
+      loadAppointments(currentPage);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to approve appointment. Please try again.');
+    }
+  };
+
+  const handleReject = async (appointmentId: string) => {
+    try {
+      setError('');
+      await rejectAppointment(appointmentId);
+      // Reload appointments to reflect the change
+      loadAppointments(currentPage);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to reject appointment. Please try again.');
     }
   };
 
@@ -199,21 +216,19 @@ export default function TherapistAppointments({ onNavigate: _onNavigate }: Thera
       <div className="flex gap-2 bg-white rounded-2xl p-1 shadow-md">
         <button
           onClick={() => setView('upcoming')}
-          className={`flex-1 py-3 rounded-xl transition-all ${
-            view === 'upcoming'
+          className={`flex-1 py-3 rounded-xl transition-all ${view === 'upcoming'
               ? 'bg-gradient-to-r from-teal-400 to-purple-400 text-white shadow-md'
               : 'text-gray-600 hover:bg-gray-50'
-          }`}
+            }`}
         >
           Upcoming
         </button>
         <button
           onClick={() => setView('past')}
-          className={`flex-1 py-3 rounded-xl transition-all ${
-            view === 'past'
+          className={`flex-1 py-3 rounded-xl transition-all ${view === 'past'
               ? 'bg-gradient-to-r from-teal-400 to-purple-400 text-white shadow-md'
               : 'text-gray-600 hover:bg-gray-50'
-          }`}
+            }`}
         >
           Past Sessions
         </button>
@@ -225,76 +240,97 @@ export default function TherapistAppointments({ onNavigate: _onNavigate }: Thera
           {upcomingAppointments.length > 0 ? (
             <>
               {upcomingAppointments.map((appointment) => (
-              <div
-                key={appointment.id}
-                className="bg-white rounded-3xl p-6 shadow-md"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-purple-400 rounded-2xl flex items-center justify-center text-white font-semibold">
-                      {getInitials(appointment)}
+                <div
+                  key={appointment.id}
+                  className="bg-white rounded-3xl p-6 shadow-md"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-purple-400 rounded-2xl flex items-center justify-center text-white font-semibold">
+                        {getInitials(appointment)}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-lg">
+                          {getPatientDisplayName(appointment)}
+                        </h4>
+                        <p className="text-gray-600 text-sm">
+                          {getPatientEmail(appointment)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-semibold text-lg">
-                        {getPatientDisplayName(appointment)}
-                      </h4>
-                      <p className="text-gray-600 text-sm">
-                        {getPatientEmail(appointment)}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          appointment.status === 'confirmed'
+                            ? 'bg-green-100 text-green-700'
+                            : appointment.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : appointment.status === 'cancelled'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                        {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                      </span>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    appointment.status === 'confirmed'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {appointment.status}
-                  </span>
-                </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="w-4 h-4" />
-                    <span className="text-sm">
-                      {new Date(appointment.date).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm">{formatTime(appointment.time_slot)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    {getAppointmentType(appointment) === 'Video Call' ? (
-                      <Video className="w-4 h-4" />
-                    ) : (
-                      <MapPin className="w-4 h-4" />
-                    )}
-                    <span className="text-sm">{getAppointmentType(appointment)}</span>
-                  </div>
-                </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="flex-1 bg-teal-500 hover:bg-teal-600 text-white rounded-xl"
-                  >
-                    Start Session
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={() => handleAddNotes(appointment)}
-                  >
-                    <FileText className="w-4 h-4 mr-1" />
-                    Notes
-                  </Button>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-sm">
+                        {new Date(appointment.date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-sm">{formatTime(appointment.time_slot)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {appointment.status === 'pending' ? (
+                      <>
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-teal-500 hover:bg-teal-600 text-white rounded-xl"
+                          onClick={() => handleApprove(appointment.id)}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 rounded-xl"
+                          onClick={() => handleReject(appointment.id)}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    ) : appointment.status === 'confirmed' ? (
+                      <>
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-teal-500 hover:bg-teal-600 text-white rounded-xl"
+                        >
+                          Start Session
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-xl"
+                          onClick={() => handleAddNotes(appointment)}
+                        >
+                          <FileText className="w-4 h-4 mr-1" />
+                          Notes
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
               ))}
               {upcomingAppointments.length > 0 && (
                 <Pagination
@@ -320,58 +356,66 @@ export default function TherapistAppointments({ onNavigate: _onNavigate }: Thera
           {pastAppointments.length > 0 ? (
             <>
               {pastAppointments.map((appointment) => (
-              <div
-                key={appointment.id}
-                className="bg-white rounded-3xl p-6 shadow-md"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-gray-300 to-gray-400 rounded-2xl flex items-center justify-center text-white font-semibold">
-                      {getInitials(appointment)}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-lg">
-                        {getPatientDisplayName(appointment)}
-                      </h4>
-                      <div className="flex items-center gap-2 text-gray-600 text-sm">
-                        <Calendar className="w-4 h-4" />
-                        <span>
-                          {new Date(appointment.date).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </span>
-                        <span>•</span>
-                        <span>{formatTime(appointment.time_slot)}</span>
+                <div
+                  key={appointment.id}
+                  className="bg-white rounded-3xl p-6 shadow-md"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-gray-300 to-gray-400 rounded-2xl flex items-center justify-center text-white font-semibold">
+                        {getInitials(appointment)}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-lg">
+                          {getPatientDisplayName(appointment)}
+                        </h4>
+                        <div className="flex items-center gap-2 text-gray-600 text-sm">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            {new Date(appointment.date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </span>
+                          <span>•</span>
+                          <span>{formatTime(appointment.time_slot)}</span>
+                        </div>
                       </div>
                     </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        appointment.status === 'confirmed'
+                          ? 'bg-green-100 text-green-700'
+                          : appointment.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : appointment.status === 'cancelled'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                      {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                    </span>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm">
-                    {appointment.status}
-                  </span>
-                </div>
 
-                {appointment.therapist_note && (
-                  <div className="p-4 bg-gray-50 rounded-2xl mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText className="w-4 h-4 text-gray-600" />
-                      <span className="text-gray-700 font-medium">Session Notes</span>
+                  {appointment.therapist_note && (
+                    <div className="p-4 bg-gray-50 rounded-2xl mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText className="w-4 h-4 text-gray-600" />
+                        <span className="text-gray-700 font-medium">Session Notes</span>
+                      </div>
+                      <p className="text-gray-600 text-sm whitespace-pre-wrap">{appointment.therapist_note}</p>
                     </div>
-                    <p className="text-gray-600 text-sm whitespace-pre-wrap">{appointment.therapist_note}</p>
-                </div>
-              )}
+                  )}
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-xl"
-                  onClick={() => handleAddNotes(appointment)}
-                >
-                  <FileText className="w-4 h-4 mr-1" />
-                  {appointment.therapist_note ? 'Edit Notes' : 'Add Notes'}
-                </Button>
-              </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => handleAddNotes(appointment)}
+                  >
+                    <FileText className="w-4 h-4 mr-1" />
+                    {appointment.therapist_note ? 'Edit Notes' : 'Add Notes'}
+                  </Button>
+                </div>
               ))}
               {pastAppointments.length > 0 && (
                 <Pagination
@@ -401,8 +445,8 @@ export default function TherapistAppointments({ onNavigate: _onNavigate }: Thera
               Patient: <strong>{getPatientDisplayName(selectedAppointment)}</strong>
             </p>
             <p className="text-gray-600 mb-4 text-sm">
-              Date: {new Date(selectedAppointment.date).toLocaleDateString('en-US', { 
-                month: 'long', 
+              Date: {new Date(selectedAppointment.date).toLocaleDateString('en-US', {
+                month: 'long',
                 day: 'numeric',
                 year: 'numeric'
               })} at {formatTime(selectedAppointment.time_slot)}

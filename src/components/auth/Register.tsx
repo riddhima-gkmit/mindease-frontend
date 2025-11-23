@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heart, Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { Heart, Mail, Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -24,6 +24,8 @@ export default function Register({ onNavigate }: RegisterProps) {
   const [loading, setLoading] = useState(false);
   const [firstNameError, setFirstNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const validateName = (name: string): boolean => {
     return /^[a-zA-Z\s]*$/.test(name);
@@ -44,9 +46,13 @@ export default function Register({ onNavigate }: RegisterProps) {
     if (validateName(value)) {
       setFormData({ ...formData, lastName: value });
       setLastNameError('');
-    } else {
-      setLastNameError('Last name can only contain letters and spaces');
     }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Don't allow leading spaces for email
+    const value = e.target.value.trimStart();
+    setFormData({ ...formData, email: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,14 +61,31 @@ export default function Register({ onNavigate }: RegisterProps) {
     setFirstNameError('');
     setLastNameError('');
 
+    // Trim values
+    const trimmedFirstName = formData.firstName.trim();
+    const trimmedLastName = formData.lastName.trim();
+    const trimmedEmail = formData.email.trim();
+
+    // Check for empty or whitespace-only values
+    if (!trimmedEmail) {
+      setError('Email cannot be empty or contain only spaces');
+      return;
+    }
+
+    if (!trimmedFirstName) {
+      setFirstNameError('First name cannot be empty or contain only spaces');
+      return;
+    }
+
     // Validate names
-    if (!validateName(formData.firstName)) {
+    if (!validateName(trimmedFirstName)) {
       setFirstNameError('First name can only contain letters and spaces. No numbers or special symbols allowed.');
       return;
     }
 
-    if (!validateName(formData.lastName)) {
-      setLastNameError('Last name can only contain letters and spaces. No numbers or special symbols allowed.');
+    // Check if password is only spaces
+    if (!formData.password.trim()) {
+      setError('Password cannot be only spaces');
       return;
     }
 
@@ -71,8 +94,8 @@ export default function Register({ onNavigate }: RegisterProps) {
       return;
     }
 
-    if (formData.password.length < 7) {
-      setError('Password must be at least 7 characters');
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
@@ -80,16 +103,19 @@ export default function Register({ onNavigate }: RegisterProps) {
 
     try {
       await register({
-        email: formData.email,
+        email: trimmedEmail,
         password: formData.password,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
+        first_name: trimmedFirstName,
+        last_name: trimmedLastName,
         role: formData.role,
       });
       onNavigate('email-verification');
     } catch (err: any) {
       const errorMessage = err.response?.data?.email?.[0] || 
                           err.response?.data?.password?.[0] ||
+                          err.response?.data?.first_name?.[0] ||
+                          err.response?.data?.last_name?.[0] ||
+                          err.response?.data?.non_field_errors?.[0] ||
                           err.response?.data?.error ||
                           err.message ||
                           'Registration failed. Please try again.';
@@ -148,7 +174,6 @@ export default function Register({ onNavigate }: RegisterProps) {
                   value={formData.lastName}
                   onChange={handleLastNameChange}
                   className={`rounded-2xl ${lastNameError ? 'border-red-500' : ''}`}
-                  required
                 />
                 {lastNameError && (
                   <p className="text-red-600 text-sm">{lastNameError}</p>
@@ -165,7 +190,7 @@ export default function Register({ onNavigate }: RegisterProps) {
                   type="email"
                   placeholder="you@example.com"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={handleEmailChange}
                   className="pl-10 rounded-2xl"
                   required
                 />
@@ -178,13 +203,25 @@ export default function Register({ onNavigate }: RegisterProps) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="pl-10 rounded-2xl"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow the value to be set, but we'll validate on submit
+                    setFormData({ ...formData, password: value });
+                  }}
+                  className="pl-10 pr-10 rounded-2xl"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
@@ -194,13 +231,25 @@ export default function Register({ onNavigate }: RegisterProps) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   id="confirmPassword"
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="pl-10 rounded-2xl"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow the value to be set, but we'll validate on submit
+                    setFormData({ ...formData, confirmPassword: value });
+                  }}
+                  className="pl-10 pr-10 rounded-2xl"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 

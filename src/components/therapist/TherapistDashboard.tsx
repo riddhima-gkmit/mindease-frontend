@@ -10,7 +10,7 @@ interface TherapistDashboardProps {
 }
 
 export default function TherapistDashboard({ onNavigate }: TherapistDashboardProps) {
-  const { user } = useAuth();
+  const { user, availableRoles } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,8 +18,13 @@ export default function TherapistDashboard({ onNavigate }: TherapistDashboardPro
     (async () => {
       try {
         setLoading(true);
-        const data = await getAppointments().catch(() => []);
-        const allAppointments = Array.isArray(data) ? data : [];
+        const data = await getAppointments(1, 100).catch(() => []); // Get first 100 appointments
+        // Handle both paginated and non-paginated responses
+        const allAppointments = Array.isArray(data) 
+          ? data 
+          : (data && typeof data === 'object' && 'results' in data) 
+            ? data.results 
+            : [];
         setAppointments(allAppointments);
 
         // Get today's appointments
@@ -248,6 +253,29 @@ export default function TherapistDashboard({ onNavigate }: TherapistDashboardPro
           </div>
         )}
       </div>
+
+      {/* Role Registration Info */}
+      {user && !availableRoles.includes('patient') && (
+        <div className="bg-gradient-to-r from-teal-50 to-purple-50 rounded-3xl p-6 shadow-md border-2 border-teal-200">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-purple-400 rounded-2xl flex items-center justify-center flex-shrink-0">
+              <Users className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-gray-800 mb-2">Register as Patient</h4>
+              <p className="text-gray-600 text-sm mb-3">
+                Want to use MindEase services for your own mental health journey? You can register as a patient from your Profile tab and switch between therapist and patient roles.
+              </p>
+              <button
+                onClick={() => onNavigate('user-profile')}
+                className="text-teal-600 hover:text-teal-700 transition-colors text-sm font-medium underline"
+              >
+                Go to Profile →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="bg-white rounded-3xl p-6 shadow-md">

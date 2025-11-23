@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, Plus, Check } from 'lucide-react';
 import { Button } from '../ui/button';
-import { getTherapistProfile, createAvailability, getTherapistAvailability } from '../../api/therapists';
+import { getTherapistProfile, createAvailability, getTherapistAvailability, deleteAvailability } from '../../api/therapists';
 
 interface TherapistAvailabilityProps {
   onNavigate: (view: any) => void;
@@ -53,6 +53,7 @@ export default function TherapistAvailability({ onNavigate: _onNavigate }: Thera
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [therapistProfileId, setTherapistProfileId] = useState<string | null>(null);
+  const [originalAvailability, setOriginalAvailability] = useState<{[key: string]: {time: string, id: string}[]}>({});
 
   useEffect(() => {
     loadAvailability();
@@ -81,14 +82,29 @@ export default function TherapistAvailability({ onNavigate: _onNavigate }: Thera
         'Sunday': []
       };
       
+      // Track original availability with IDs for comparison
+      const original: {[key: string]: {time: string, id: string}[]} = {
+        'Monday': [],
+        'Tuesday': [],
+        'Wednesday': [],
+        'Thursday': [],
+        'Friday': [],
+        'Saturday': [],
+        'Sunday': []
+      };
+      
       availabilities.forEach(avail => {
         const day = avail.day_of_week;
-        if (grouped[day]) {
+        if (grouped[day] && original[day]) {
           // Convert time range to individual slots
           // For simplicity, we'll show the start time as the slot
           const displayTime = timeFrom24Hour(avail.start_time);
           if (!grouped[day].includes(displayTime)) {
             grouped[day].push(displayTime);
+          }
+          // Store original with ID
+          if (!original[day].some(item => item.time === displayTime)) {
+            original[day].push({ time: displayTime, id: avail.id });
           }
         }
       });
@@ -100,9 +116,15 @@ export default function TherapistAvailability({ onNavigate: _onNavigate }: Thera
           const timeB = timeTo24Hour(b);
           return timeA.localeCompare(timeB);
         });
+        original[day].sort((a, b) => {
+          const timeA = timeTo24Hour(a.time);
+          const timeB = timeTo24Hour(b.time);
+          return timeA.localeCompare(timeB);
+        });
       });
       
       setAvailability(grouped);
+      setOriginalAvailability(original);
     } catch (err: any) {
       console.error('Failed to load availability:', err);
       setError(err.response?.data?.error || 'Failed to load availability');
@@ -137,30 +159,49 @@ export default function TherapistAvailability({ onNavigate: _onNavigate }: Thera
       setError('');
       setSuccess('');
 
-      // For each day, create availability slots
-      // We'll create slots for each selected time (1 hour slots)
       const promises: Promise<any>[] = [];
       
+      // Compare current availability with original to find:
+      // 1. Slots to delete (exist in original but not in current)
+      // 2. Slots to create (exist in current but not in original)
+      
       Object.keys(availability).forEach(day => {
-        const slots = availability[day];
-        slots.forEach(slot => {
-          const startTime = timeTo24Hour(slot);
-          // Calculate end time (1 hour later)
-          const [hours, minutes] = startTime.split(':').map(Number);
-          let endHour = hours + 1;
-          if (endHour >= 24) endHour = 0;
-          const endTime = `${endHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-          
-          promises.push(
-            createAvailability({
-              day_of_week: day,
-              start_time: startTime,
-              end_time: endTime
-            }).catch(err => {
-              // Ignore duplicate errors for now
-              console.warn(`Failed to create slot for ${day} ${slot}:`, err);
-            })
-          );
+        const currentSlots = availability[day] || [];
+        const originalSlots = originalAvailability[day] || [];
+        
+        // Find slots to delete (in original but not in current)
+        originalSlots.forEach(originalSlot => {
+          if (!currentSlots.includes(originalSlot.time)) {
+            promises.push(
+              deleteAvailability(originalSlot.id).catch(err => {
+                console.warn(`Failed to delete slot ${originalSlot.id}:`, err);
+              })
+            );
+          }
+        });
+        
+        // Find slots to create (in current but not in original)
+        currentSlots.forEach(slot => {
+          const existsInOriginal = originalSlots.some(orig => orig.time === slot);
+          if (!existsInOriginal) {
+            const startTime = timeTo24Hour(slot);
+            // Calculate end time (1 hour later)
+            const [hours, minutes] = startTime.split(':').map(Number);
+            let endHour = hours + 1;
+            if (endHour >= 24) endHour = 0;
+            const endTime = `${endHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+            
+            promises.push(
+              createAvailability({
+                day_of_week: day,
+                start_time: startTime,
+                end_time: endTime
+              }).catch(err => {
+                // Ignore duplicate errors for now
+                console.warn(`Failed to create slot for ${day} ${slot}:`, err);
+              })
+            );
+          }
         });
       });
 

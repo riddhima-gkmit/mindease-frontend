@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heart, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Heart, Mail, Lock, AlertCircle, User, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -14,20 +14,67 @@ export default function Login({ onNavigate }: LoginProps) {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState<'patient' | 'therapist'>('patient');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Trim email
+    const trimmedEmail = email.trim();
+
+    // Validate email
+    if (!trimmedEmail) {
+      setError('Email cannot be empty or contain only spaces');
+      return;
+    }
+
+    // Validate password is not only spaces
+    if (!password.trim()) {
+      setError('Password cannot be only spaces');
+      return;
+    }
+
     setLoading(true);
 
-    try {
-      await login(email, password);
+    try{
+      await login(trimmedEmail, password, selectedRole);
       // Navigation will be handled by App.tsx based on user role
       // The DashboardRedirect component will handle routing
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Invalid email or password');
+      // Extract error message from various possible response formats
+      let errorMessage = 'Invalid email or password';
+      
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        
+        // Check for direct error message
+        if (errorData.error) {
+          errorMessage = typeof errorData.error === 'string' 
+            ? errorData.error 
+            : errorData.error[0] || errorMessage;
+        }
+        // Check for non_field_errors (Django REST Framework format)
+        else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+          errorMessage = errorData.non_field_errors[0];
+        }
+        // Check for field-specific errors (email, password, etc.)
+        else if (typeof errorData === 'object') {
+          const firstErrorKey = Object.keys(errorData)[0];
+          if (firstErrorKey && Array.isArray(errorData[firstErrorKey])) {
+            errorMessage = errorData[firstErrorKey][0];
+          } else if (typeof errorData[firstErrorKey] === 'string') {
+            errorMessage = errorData[firstErrorKey];
+          }
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -66,7 +113,7 @@ export default function Login({ onNavigate }: LoginProps) {
                   type="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.trimStart())}
                   className="pl-10 rounded-2xl"
                   required
                 />
@@ -79,13 +126,51 @@ export default function Login({ onNavigate }: LoginProps) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 rounded-2xl"
+                  className="pl-10 pr-10 rounded-2xl"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Login as:</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('patient')}
+                  className={`p-4 rounded-2xl border-2 transition-all ${
+                    selectedRole === 'patient'
+                      ? 'border-teal-400 bg-teal-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <User className="w-6 h-6 mx-auto mb-2 text-teal-600" />
+                  <p className="text-gray-700 text-sm">Patient</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('therapist')}
+                  className={`p-4 rounded-2xl border-2 transition-all ${
+                    selectedRole === 'therapist'
+                      ? 'border-purple-400 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <Heart className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                  <p className="text-gray-700 text-sm">Therapist</p>
+                </button>
               </div>
             </div>
 

@@ -43,10 +43,30 @@ export default function ProtectedRoute({ children, requiredRole, allowWithoutPro
   }
 
   // For therapists, check if they have a profile (unless this route allows access without profile)
-  // Only check if user is loaded (not null) to avoid premature redirects on page refresh
+  // Check localStorage first for has_profile, then user state, then hook
   if (user && user.role === 'therapist' && requiredRole === 'therapist' && !allowWithoutProfile) {
-    // Show loading while checking profile
-    if (profileLoading) {
+    // Check localStorage first (most reliable)
+    const storedHasProfile = localStorage.getItem('has_profile');
+    const hasProfileFromStorage = storedHasProfile === 'true';
+    
+    // Check if therapist has profile - prioritize localStorage, then user state
+    const shouldRedirectToProfile = storedHasProfile !== null 
+      ? !hasProfileFromStorage  // If localStorage has value, use it
+      : user.has_profile === false;  // Otherwise use user state
+    
+    if (shouldRedirectToProfile && location.pathname !== '/therapist/profile') {
+      // Redirect to profile page if they don't have a profile
+      return <Navigate to="/therapist/profile" replace />;
+    }
+    
+    // If has_profile is true, allow access to dashboard (don't redirect)
+    if (hasProfileFromStorage || user.has_profile === true) {
+      // User has profile, allow access
+      return <>{children}</>;
+    }
+    
+    // Show loading while checking profile (for page reloads where has_profile might not be set yet)
+    if (user.has_profile === undefined && storedHasProfile === null && profileLoading) {
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
@@ -57,9 +77,8 @@ export default function ProtectedRoute({ children, requiredRole, allowWithoutPro
       );
     }
 
-    // Only redirect if profile check is complete and therapist doesn't have a profile
-    // This prevents redirects during the initial profile check on page refresh
-    if (!profileLoading && !hasProfile && location.pathname !== '/therapist/profile') {
+    // Fallback: check hook result if localStorage and user state don't have value
+    if (!profileLoading && !hasProfile && storedHasProfile === null && user.has_profile === undefined && location.pathname !== '/therapist/profile') {
       return <Navigate to="/therapist/profile" replace />;
     }
   }

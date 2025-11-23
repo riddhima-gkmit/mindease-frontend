@@ -16,7 +16,7 @@ interface UserDashboardProps {
 const moodEmojis = ['😔', '😕', '😐', '🙂', '😄'];
 
 export default function UserDashboard({ onNavigate }: UserDashboardProps) {
-  const { user } = useAuth();
+  const { user, availableRoles } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
   const [moodAnalytics, setMoodAnalytics] = useState<{ average_mood: number; trend: string } | null>(null);
@@ -401,6 +401,29 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
             >
               View Details
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Role Registration Info */}
+      {user && !availableRoles.includes('therapist') && (
+        <div className="bg-gradient-to-r from-purple-50 to-teal-50 rounded-3xl p-6 shadow-md border-2 border-purple-200">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-teal-400 rounded-2xl flex items-center justify-center flex-shrink-0">
+              <Lightbulb className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-gray-800 mb-2">Become a Therapist</h4>
+              <p className="text-gray-600 text-sm mb-3">
+                Interested in helping others on their mental health journey? You can register as a therapist from your Profile tab. Once approved, you'll be able to help patients and manage your practice.
+              </p>
+              <button
+                onClick={() => onNavigate('user-profile')}
+                className="text-teal-600 hover:text-teal-700 transition-colors text-sm font-medium underline"
+              >
+                Go to Profile →
+              </button>
+            </div>
           </div>
         </div>
       )}

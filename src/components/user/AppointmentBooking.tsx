@@ -427,11 +427,8 @@ export default function AppointmentBooking({
             <div className="inline-flex items-center justify-center w-20 h-20 bg-teal-100 rounded-full mb-6">
               <CheckCircle className="w-10 h-10 text-teal-600" />
             </div>
-            <h2 className="mb-4">Booking Confirmed!</h2>
-            <p className="text-gray-600 mb-2">Your appointment has been successfully scheduled.</p>
-            <p className="text-gray-500 text-sm mb-6">
-              📧 We've sent a confirmation email with the appointment details to your registered email address.
-            </p>
+            <h2 className="mb-4">Booking Request Submitted!</h2>
+            <p className="text-gray-600 mb-2">Your appointment request has been submitted. The therapist will review and approve it. You'll receive a confirmation email once approved.</p>
             <Button 
               className="w-full bg-gradient-to-r from-teal-400 to-purple-400 hover:from-teal-500 hover:to-purple-500 text-white rounded-2xl h-12" 
               onClick={onClose}

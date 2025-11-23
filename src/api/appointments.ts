@@ -37,3 +37,13 @@ export const getTherapistBookedSlots = async (therapistId: string, date: string)
   return response.data.booked_slots || [];
 };
 
+// Approve or reject a pending appointment (therapist only)
+export const approveAppointment = async (appointmentId: string): Promise<{ message: string }> => {
+  const response = await api.patch(`/appointments/${appointmentId}/approve-reject/`, { action: 'approve' });
+  return response.data;
+};
+
+export const rejectAppointment = async (appointmentId: string): Promise<{ message: string }> => {
+  const response = await api.patch(`/appointments/${appointmentId}/approve-reject/`, { action: 'reject' });
+  return response.data;
+};

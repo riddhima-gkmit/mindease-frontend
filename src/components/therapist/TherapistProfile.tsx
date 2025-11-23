@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Save, AlertCircle, CheckCircle, LogOut } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { User, Save, AlertCircle, CheckCircle, LogOut, UserPlus, Settings, Bell, Shield } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
+import { Alert, AlertDescription } from '../ui/alert';
 import { useAuth } from '../../contexts/AuthContext';
-import { getTherapistProfile, updateTherapistProfile, createTherapistProfile } from '../../api/therapists';
-import { triggerProfileRefetch } from '../../hooks/useTherapistProfile';
-import type { TherapistProfile } from '../../types/therapists';
+import { authAPI } from '../../api/auth';
+import { updateTherapistProfile, createTherapistProfile } from '../../api/therapists';
+import { useTherapistProfile, triggerProfileRefetch } from '../../hooks/useTherapistProfile';
+import AccountSettingsDialog from '../user/AccountSettingsDialog';
+import InfoDialog from '../user/InfoDialog';
+import ConfirmationPopup from '../ui/ConfirmationPopup';
 import type { UpdateTherapistProfileData } from '../../types/therapists';
 
 interface TherapistProfileProps {
@@ -17,47 +21,120 @@ interface TherapistProfileProps {
 
 export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistProfileProps) {
   const navigate = useNavigate();
-  const { logout } = useAuth();
-  const [profile, setProfile] = useState<TherapistProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const { logout, availableRoles, addRole, updateHasProfile, user } = useAuth();
+  const { profile, loading, refetch } = useTherapistProfile();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [addRoleLoading, setAddRoleLoading] = useState(false);
+  const [addRoleError, setAddRoleError] = useState('');
+  const [addRoleSuccess, setAddRoleSuccess] = useState(false);
+  const [showConfirmationPopup, setShowConfirmationPopup] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   
-  const [formData, setFormData] = useState<UpdateTherapistProfileData>({
+  // Initialize formData - use profile data if available, otherwise defaults
+  const getInitialFormData = (): UpdateTherapistProfileData => {
+    if (profile) {
+      return {
+        specialization: profile.specialization || '',
+        experience_years: profile.experience_years || 0,
+        consultation_mode: (profile.consultation_mode as 'online' | 'offline' | 'both') || 'online',
+        about: profile.about || '',
+        clinic_address: profile.clinic_address || ''
+      };
+    }
+    return {
+      specialization: '',
+      experience_years: 0,
+      consultation_mode: 'online',
+      about: '',
+      clinic_address: ''
+    };
+  };
+
+  const [formData, setFormData] = useState<UpdateTherapistProfileData>(getInitialFormData());
+
+  // Update form data when profile loads or changes
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        specialization: profile.specialization || '',
+        experience_years: profile.experience_years || 0,
+        consultation_mode: (profile.consultation_mode as 'online' | 'offline' | 'both') || 'online',
+        about: profile.about || '',
+        clinic_address: profile.clinic_address || ''
+      });
+    } else if (!loading) {
+      // Reset form data when profile is null and not loading (e.g., after logout/login)
+      setFormData({
     specialization: '',
     experience_years: 0,
     consultation_mode: 'online',
     about: '',
     clinic_address: ''
   });
+    }
+  }, [profile, loading]);
 
+  // Explicitly fetch therapist profile when component mounts or route changes
+  // This ensures fresh data is loaded when user navigates to this page
   useEffect(() => {
-    loadProfile();
+    if (user?.role === 'therapist' && location.pathname === '/therapist/profile') {
+      // Check if user has profile from localStorage
+      const storedHasProfile = localStorage.getItem('has_profile');
+      if (storedHasProfile === 'true' || user?.has_profile === true) {
+        // User has profile, explicitly fetch it to ensure fields are populated
+        refetch();
+      }
+    }
+  }, [location.pathname, user?.role, user?.has_profile, refetch]);
+
+  // Load user profile data for account settings on mount
+  useEffect(() => {
+    loadUserProfile();
   }, []);
 
-  const loadProfile = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const data = await getTherapistProfile();
-      setProfile(data);
-      setFormData({
-        specialization: data.specialization || '',
-        experience_years: data.experience_years || 0,
-        consultation_mode: (data.consultation_mode as 'online' | 'offline' | 'both') || 'online',
-        about: data.about || '',
-        clinic_address: data.clinic_address || ''
-      });
-    } catch (err: any) {
-      if (err.response?.status === 404) {
-        // Profile doesn't exist yet, that's okay - user can create it
-        setError('');
-      } else {
-        setError(err.response?.data?.error || 'Failed to load profile');
+  // Reload user profile data when dialog opens to ensure fresh data
+  useEffect(() => {
+    if (settingsOpen) {
+      loadUserProfile();
+    }
+  }, [settingsOpen]);
+
+  // Also update from user context if available
+  useEffect(() => {
+    if (user) {
+      const userFirstName = (user as any).first_name || '';
+      const userLastName = (user as any).last_name || '';
+      const userUsername = user.username || '';
+      
+      // Only update if we have data and current state is empty
+      if (userFirstName && !firstName) {
+        setFirstName(userFirstName);
       }
-    } finally {
-      setLoading(false);
+      if (userLastName && !lastName) {
+        setLastName(userLastName);
+      }
+      if (userUsername && !username) {
+        setUsername(userUsername);
+      }
+    }
+  }, [user]);
+
+  const loadUserProfile = async () => {
+    try {
+      const data = await authAPI.getProfile();
+      setFirstName((data as any).first_name || '');
+      setLastName((data as any).last_name || '');
+      setUsername(data.username || '');
+    } catch (e: any) {
+      // ignore - will use user context data as fallback
     }
   };
 
@@ -69,7 +146,13 @@ export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistP
 
     try {
       if (profile) {
-        // Update existing profile
+          // Update existing profile - validate clinic_address if consultation_mode is 'offline' or 'both'
+          if ((formData.consultation_mode === 'offline' || formData.consultation_mode === 'both') && !formData.clinic_address?.trim()) {
+            setError('Clinic address is required when consultation mode is "Offline" or "Both"');
+            setSaving(false);
+            return;
+          }
+          
         await updateTherapistProfile(formData);
         setSuccess('Profile updated successfully!');
       } else {
@@ -79,18 +162,29 @@ export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistP
           setSaving(false);
           return;
         }
-        await createTherapistProfile({
+          
+          // Validate clinic_address if consultation_mode is 'offline' or 'both'
+          if ((formData.consultation_mode === 'offline' || formData.consultation_mode === 'both') && !formData.clinic_address?.trim()) {
+            setError('Clinic address is required when consultation mode is "Offline" or "Both"');
+            setSaving(false);
+            return;
+          }
+          
+          const response = await createTherapistProfile({
           specialization: formData.specialization,
           experience_years: formData.experience_years,
           consultation_mode: formData.consultation_mode,
           about: formData.about,
-          clinic_address: formData.clinic_address
+            clinic_address: formData.clinic_address || ''
         });
+          
+          // Update has_profile flag only if status is 201 (created)
+          if (response.status === 201) {
+            updateHasProfile(true);
+          }
+          
         setSuccess('Profile created successfully!');
       }
-      
-      // Reload profile to get updated data
-      await loadProfile();
       
       // Trigger profile refetch in all components that use useTherapistProfile
       // This updates ProtectedRoute and TherapistLayout to allow navigation
@@ -107,6 +201,21 @@ export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistP
 
   const handleChange = (field: keyof UpdateTherapistProfileData, value: any) => {
     setFormData((prev: UpdateTherapistProfileData) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddPatientRole = async () => {
+    setAddRoleLoading(true);
+    setAddRoleError('');
+    setAddRoleSuccess(false);
+    try {
+      await addRole('patient');
+      setAddRoleSuccess(true);
+      setShowConfirmationPopup(true);
+    } catch (err: any) {
+      setAddRoleError(err.response?.data?.error || 'Failed to add patient role');
+    } finally {
+      setAddRoleLoading(false);
+    }
   };
 
   if (loading) {
@@ -275,7 +384,7 @@ export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistP
         {(formData.consultation_mode === 'offline' || formData.consultation_mode === 'both') && (
           <div className="space-y-2">
             <Label htmlFor="clinic_address" className="text-gray-700">
-              Clinic Address
+              Clinic Address <span className="text-red-500">*</span>
             </Label>
             <Textarea
               id="clinic_address"
@@ -283,6 +392,7 @@ export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistP
               onChange={(e) => handleChange('clinic_address', e.target.value)}
               placeholder="Enter your clinic address for in-person appointments"
               rows={3}
+              required
               className="rounded-2xl"
             />
             <p className="text-gray-500 text-xs">Required for offline consultations</p>
@@ -324,11 +434,121 @@ export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistP
         </ul>
       </div>
 
+      {/* Settings Options */}
+      <div className="bg-white rounded-3xl p-6 shadow-md">
+        <h3 className="mb-4">Settings</h3>
+        <div className="space-y-2">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-left"
+          >
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+              <Settings className="w-5 h-5 text-gray-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-gray-800">Account Settings</p>
+              <p className="text-gray-500">Update your profile and preferences</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setNotificationsOpen(true)}
+            className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-left"
+          >
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+              <Bell className="w-5 h-5 text-gray-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-gray-800">Notifications</p>
+              <p className="text-gray-500">Manage notification preferences</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setPrivacyOpen(true)}
+            className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-left"
+          >
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+              <Shield className="w-5 h-5 text-gray-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-gray-800">Privacy & Security</p>
+              <p className="text-gray-500">Control your data and security</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Account Settings Dialog */}
+      <AccountSettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        initialFirstName={firstName}
+        initialLastName={lastName}
+        initialUsername={username}
+        onSaved={async () => {
+          try {
+            const refreshed = await authAPI.getProfile();
+            setFirstName((refreshed as any).first_name || '');
+            setLastName((refreshed as any).last_name || '');
+            setUsername(refreshed.username || '');
+          } catch {}
+        }}
+      />
+      <InfoDialog
+        open={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        title="Notifications (Coming Soon)"
+        description="We're working on customizable notifications for appointments, reminders, and updates. This feature will be available soon."
+      />
+      <InfoDialog
+        open={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
+        title="Privacy & Security (Coming Soon)"
+        description="Manage data export, account deletion, and security settings will be available here in an upcoming update."
+      />
+
+      {/* Add Patient Role */}
+      {!availableRoles.includes('patient') && (
+        <div className="bg-gradient-to-r from-teal-50 to-purple-50 rounded-3xl p-6 shadow-md">
+          <h4 className="mb-2 flex items-center">
+            <UserPlus className="w-5 h-5 mr-2 text-teal-600" />
+            Register as Patient
+          </h4>
+          <p className="text-gray-600 mb-4 text-sm">
+            Add patient role to use MindEase services for your own mental health journey. You'll be able to switch between therapist and patient roles.
+          </p>
+          
+          {addRoleSuccess && (
+            <Alert className="mb-4 rounded-2xl border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                Patient role added successfully! Please log out and log back in as Patient to access patient features.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {addRoleError && (
+            <Alert variant="destructive" className="mb-4 rounded-2xl">
+              <AlertDescription>{addRoleError}</AlertDescription>
+            </Alert>
+          )}
+          
+          <Button
+            onClick={handleAddPatientRole}
+            disabled={addRoleLoading || addRoleSuccess}
+            className="w-full rounded-2xl h-12 bg-gradient-to-r from-teal-400 to-purple-400 hover:from-teal-500 hover:to-purple-500 text-white"
+          >
+            {addRoleLoading ? 'Adding Role...' : addRoleSuccess ? 'Role Added!' : 'Register as Patient'}
+          </Button>
+        </div>
+      )}
+
       {/* Logout Button */}
       <div className="bg-white rounded-3xl p-6 shadow-md">
         <Button
-          onClick={() => {
-            logout();
+          onClick={async () => {
+            await logout();
             navigate('/login');
           }}
           variant="outline"
@@ -338,6 +558,13 @@ export default function TherapistProfile({ onNavigate: _onNavigate }: TherapistP
           Log Out
         </Button>
       </div>
+
+      {/* Confirmation Popup */}
+      <ConfirmationPopup
+        show={showConfirmationPopup}
+        message="Patient role added successfully! Please log out and log back in as Patient to access patient features."
+        onClose={() => setShowConfirmationPopup(false)}
+      />
     </div>
   );
 }

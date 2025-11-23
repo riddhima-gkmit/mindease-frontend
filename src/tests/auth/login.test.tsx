@@ -23,42 +23,56 @@ describe('Login', () => {
     renderLogin(onNavigate);
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'user@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(login).toHaveBeenCalledWith('user@example.com', 'password123');
-      expect(onNavigate).toHaveBeenCalledWith('user-dashboard');
+      // Login now includes role parameter (defaults to 'patient')
+      expect(login).toHaveBeenCalledWith('user@example.com', 'password123', 'patient');
+      // Navigation is now handled by App.tsx, not onNavigate
     });
   });
 
-  it('navigates to admin dashboard when email includes admin', async () => {
+  it('calls login with patient role by default', async () => {
     const onNavigate = vi.fn();
     login.mockResolvedValueOnce(undefined);
 
     renderLogin(onNavigate);
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'admin@company.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(onNavigate).toHaveBeenCalledWith('admin-dashboard');
+      // Login always includes role parameter (defaults to 'patient')
+      // Note: Navigation is now handled by App.tsx based on user role from backend
+      expect(login).toHaveBeenCalledWith('admin@company.com', 'password123', 'patient');
     });
   });
 
-  it('navigates to therapist dashboard when email includes therapist', async () => {
+  it('calls login with therapist role when therapist role is selected', async () => {
     const onNavigate = vi.fn();
     login.mockResolvedValueOnce(undefined);
 
     renderLogin(onNavigate);
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'therapist@company.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password123' } });
+    
+    // Click the therapist role button - find button containing "Therapist" text but not "Sign In"
+    const buttons = screen.getAllByRole('button');
+    const therapistButton = buttons.find(button => 
+      button.textContent?.includes('Therapist') && !button.textContent?.includes('Sign In')
+    );
+    expect(therapistButton).toBeDefined();
+    fireEvent.click(therapistButton!);
+    
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(onNavigate).toHaveBeenCalledWith('therapist-dashboard');
+      // Login should be called with 'therapist' role when therapist button is selected
+      expect(login).toHaveBeenCalledWith('therapist@company.com', 'password123', 'therapist');
+      // Navigation is now handled by App.tsx based on user role from backend
     });
   });
 
@@ -69,7 +83,7 @@ describe('Login', () => {
     renderLogin();
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'user@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'wrong' } });
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'wrong' } });
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     expect(await screen.findByText(/invalid email or password/i)).toBeInTheDocument();

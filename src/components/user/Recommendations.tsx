@@ -15,6 +15,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   calming: 'from-purple-100 to-pink-100 text-purple-700',
 };
 
+
 export default function Recommendations({ onNavigate }: RecommendationsProps) {
   const [data, setData] = useState<RecommendationsResponse | null>(null);
   const [loading, setLoading] = useState(true);

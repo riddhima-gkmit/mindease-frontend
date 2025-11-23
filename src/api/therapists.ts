@@ -8,9 +8,9 @@ export const getTherapistProfile = async (): Promise<TherapistProfile> => {
 };
 
 // Create therapist profile
-export const createTherapistProfile = async (data: CreateTherapistProfileData): Promise<{ message: string }> => {
+export const createTherapistProfile = async (data: CreateTherapistProfileData): Promise<{ message: string; status?: number }> => {
   const response = await api.post('/therapists/profile/', data);
-  return response.data;
+  return { ...response.data, status: response.status };
 };
 
 // Update therapist profile
@@ -46,6 +46,12 @@ export const getTherapistAvailability = async (therapistId: string): Promise<The
 // Create availability slot for current therapist
 export const createAvailability = async (data: CreateAvailabilityData): Promise<{ message: string }> => {
   const response = await api.post('/therapists/availability/create/', data);
+  return response.data;
+};
+
+// Delete availability slot
+export const deleteAvailability = async (slotId: string): Promise<{ message: string }> => {
+  const response = await api.delete(`/therapists/availability/delete/${slotId}/`);
   return response.data;
 };
 
